@@ -59,20 +59,20 @@
 #define Z_MS2_PIN           -1
 
 #define HEATER_BED_PIN       8
-#define TEMP_BED_PIN         67 //A13
+#define TEMP_BED_PIN         13 //A13
 
 #define HEATER_0_PIN         10 //PE5
-#define TEMP_0_PIN           68 //A14
+#define TEMP_0_PIN           14 //A14
 
 #define HEATER_1_PIN        -1
-#define TEMP_1_PIN           1
+#define TEMP_1_PIN          -1
 
 #define HEATER_2_PIN        -1
 #define TEMP_2_PIN          -1
 
 //#define TEMP_AMBIENT_PIN     5 //A5
 
-#define TEMP_PINDA_PIN       69 //A15
+#define TEMP_PINDA_PIN       15 //A15
 
 //#define VOLT_PWR_PIN         4 //A4
 //#define VOLT_BED_PIN         9 //A9
@@ -92,7 +92,6 @@
 #define FAN_PIN              9
 #define FAN_1_PIN           -1
 #define PS_ON_PIN           -1
-#define KILL_PIN            -1  // 80 with Smart Controller LCD
 #define SUICIDE_PIN         -1  // PIN that has to be turned on right after start, to keep power flowing.
 
 
@@ -111,7 +110,7 @@
 #define BTN_EN1             31
 #define BTN_EN2             33
 #define BTN_ENC             35
-
+#define KILL_PIN            41
 #define SDCARDDETECT        49
 
 //#define TACH_0                 79 // !!! changed from 81 (EINY03)
