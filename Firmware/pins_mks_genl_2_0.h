@@ -27,7 +27,7 @@
 #define X_TMC2130_DIAG       3
 #define X_STEP_PIN          54 // A0
 #define X_DIR_PIN           55 // A1
-#define X_MIN_PIN            2  // X+ on the board (not used)
+#define X_MIN_PIN            5
 //#define X_MAX_PIN           2
 //#define X_MIN_PIN           X_TMC2130_DIAG
 #define X_MAX_PIN           X_TMC2130_DIAG
@@ -39,7 +39,7 @@
 #define Y_TMC2130_DIAG      14
 #define Y_STEP_PIN          60 // A6
 #define Y_DIR_PIN           61 // A7
-#define Y_MIN_PIN           15 // Y+ in the board (not used)
+#define Y_MIN_PIN            6
 //#define Y_MAX_PIN           15
 //#define Y_MIN_PIN           Y_TMC2130_DIAG
 #define Y_MAX_PIN           Y_TMC2130_DIAG
@@ -51,7 +51,7 @@
 #define Z_TMC2130_DIAG      18
 #define Z_STEP_PIN          46
 #define Z_DIR_PIN           48
-#define Z_MIN_PIN           18
+#define Z_MIN_PIN           19 // Y+ in the board PINDA
 #define Z_MAX_PIN           -1
 //#define Z_MAX_PIN           Z_TMC2130_DIAG
 #define Z_ENABLE_PIN        62 // A8
@@ -117,7 +117,7 @@
 //#define TACH_0                 79 // !!! changed from 81 (EINY03)
 //#define TACH_1                 80 
 
-#define IR_SENSOR_PIN       19 // idler sensor @PK0 (digital pin 62/A8)
+#define IR_SENSOR_PIN       4  // idler sensor @PK0 (digital pin 62/A8)
 
 // Support for an 8 bit logic analyzer, for example the Saleae.
 // Channels 0-2 are fast, they could generate 2.667Mhz waveform with a software loop.
