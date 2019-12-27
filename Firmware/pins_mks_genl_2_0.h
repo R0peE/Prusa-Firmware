@@ -23,73 +23,73 @@
 //#define SWI2C_SCL      21 //SCL on P3
 
 
-#define X_TMC2130_CS           41
-#define X_TMC2130_DIAG         64 // !!! changed from 40 (EINY03)
-#define X_STEP_PIN             37
-#define X_DIR_PIN              49
-#define X_MIN_PIN            12
-//#define X_MAX_PIN            30
-//#define X_MIN_PIN              X_TMC2130_DIAG
-#define X_MAX_PIN              X_TMC2130_DIAG
-#define X_ENABLE_PIN           29
+#define X_TMC2130_CS        63 // A9
+#define X_TMC2130_DIAG       3
+#define X_STEP_PIN          54 // A0
+#define X_DIR_PIN           55 // A1
+#define X_MIN_PIN            2  // X+ on the board (not used)
+//#define X_MAX_PIN           2
+//#define X_MIN_PIN           X_TMC2130_DIAG
+#define X_MAX_PIN           X_TMC2130_DIAG
+#define X_ENABLE_PIN        38
 #define X_MS1_PIN           -1
 #define X_MS2_PIN           -1
 
-#define Y_TMC2130_CS        39
-#define Y_TMC2130_DIAG      69
-#define Y_STEP_PIN          36
-#define Y_DIR_PIN           48
-#define Y_MIN_PIN           11
-//#define Y_MAX_PIN           24
+#define Y_TMC2130_CS        64 // A10
+#define Y_TMC2130_DIAG      14
+#define Y_STEP_PIN          60 // A6
+#define Y_DIR_PIN           61 // A7
+#define Y_MIN_PIN           15 // Y+ in the board (not used)
+//#define Y_MAX_PIN           15
 //#define Y_MIN_PIN           Y_TMC2130_DIAG
 #define Y_MAX_PIN           Y_TMC2130_DIAG
-#define Y_ENABLE_PIN        28
+#define Y_ENABLE_PIN        56 // A2
 #define Y_MS1_PIN           -1
 #define Y_MS2_PIN           -1
 
-#define Z_TMC2130_CS        67
-#define Z_TMC2130_DIAG      68
-#define Z_STEP_PIN          35
-#define Z_DIR_PIN           47
-#define Z_MIN_PIN           10
-#define Z_MAX_PIN           23
+#define Z_TMC2130_CS        65 // A11
+#define Z_TMC2130_DIAG      18
+#define Z_STEP_PIN          46
+#define Z_DIR_PIN           48
+#define Z_MIN_PIN           18
+#define Z_MAX_PIN           -1
 //#define Z_MAX_PIN           Z_TMC2130_DIAG
-#define Z_ENABLE_PIN        27
+#define Z_ENABLE_PIN        62 // A8
 #define Z_MS1_PIN           -1
 #define Z_MS2_PIN           -1
 
-#define HEATER_BED_PIN       4 //PG5
-#define TEMP_BED_PIN         2 //A2
+#define HEATER_BED_PIN       8
+#define TEMP_BED_PIN         67 //A13
 
-#define HEATER_0_PIN         3 //PE5
-#define TEMP_0_PIN           0 //A0
+#define HEATER_0_PIN         10 //PE5
+#define TEMP_0_PIN           68 //A14
 
 #define HEATER_1_PIN        -1
-#define TEMP_1_PIN           1 //A1
+#define TEMP_1_PIN           1
 
 #define HEATER_2_PIN        -1
 #define TEMP_2_PIN          -1
 
 //#define TEMP_AMBIENT_PIN     5 //A5
 
-#define TEMP_PINDA_PIN       3 //A3
+#define TEMP_PINDA_PIN       69 //A15
 
 //#define VOLT_PWR_PIN         4 //A4
 //#define VOLT_BED_PIN         9 //A9
 
 
-#define E0_TMC2130_CS       66
-#define E0_TMC2130_DIAG     65
-#define E0_STEP_PIN         34
-#define E0_DIR_PIN          43
-#define E0_ENABLE_PIN       26
+#define E0_TMC2130_CS       66 // A12
+#define E0_TMC2130_DIAG     2
+#define E0_STEP_PIN         26
+#define E0_DIR_PIN          28
+#define E0_ENABLE_PIN       24
 #define E0_MS1_PIN          -1
 #define E0_MS2_PIN          -1
 
 #define SDPOWER             -1
-#define SDSS                77
-#define LED_PIN             13
-#define FAN_PIN              6
+#define SDSS                53
+#define LED_PIN             13  // ???
+#define FAN_PIN              9
 #define FAN_1_PIN           -1
 #define PS_ON_PIN           -1
 #define KILL_PIN            -1  // 80 with Smart Controller LCD
@@ -99,25 +99,25 @@
 //#define KILL_PIN            32
 
 //#define LCD_BL_PIN          5   //backlight control pin
-#define BEEPER              84  // Beeper on AUX-4
-#define LCD_PINS_RS         82
-#define LCD_PINS_ENABLE     61 // !!! changed from 18 (EINY03)
-#define LCD_PINS_D4	        59 // !!! changed from 19 (EINY03)
-#define LCD_PINS_D5         70
-#define LCD_PINS_D6         85
-#define LCD_PINS_D7         71
+#define BEEPER              37
+#define LCD_PINS_RS         16
+#define LCD_PINS_ENABLE     17
+#define LCD_PINS_D4	        23
+#define LCD_PINS_D5         25
+#define LCD_PINS_D6         27
+#define LCD_PINS_D7         29
 
 //buttons are directly attached using AUX-2
-#define BTN_EN1                72
-#define BTN_EN2                14
-#define BTN_ENC                 9  // the click
+#define BTN_EN1             31
+#define BTN_EN2             33
+#define BTN_ENC             35
 
-#define SDCARDDETECT           15
+#define SDCARDDETECT        49
 
 //#define TACH_0                 79 // !!! changed from 81 (EINY03)
 //#define TACH_1                 80 
 
-#define IR_SENSOR_PIN 62 //idler sensor @PK0 (digital pin 62/A8)
+#define IR_SENSOR_PIN       19 // idler sensor @PK0 (digital pin 62/A8)
 
 // Support for an 8 bit logic analyzer, for example the Saleae.
 // Channels 0-2 are fast, they could generate 2.667Mhz waveform with a software loop.
