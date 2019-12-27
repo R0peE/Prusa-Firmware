@@ -7,7 +7,7 @@ The EINSY Rambo board has more capabilities, so some non-critical functionality 
 
 See DisabledFeatures.txt for details what is not currently supported on the MKS GEN L board.
 
-For compile the firmware you have to install the Prusa Rambo board variant as described in step 1b in the Windows section in ths original [README.md](https://github.com/prusa3d/Prusa-Firmware#using-linux-subsystem-under-windows-10-64-bit)
+For compile the firmware you have to install the Prusa Rambo board variant as described in step 1b in the Windows section in the original [README.md](https://github.com/prusa3d/Prusa-Firmware#using-linux-subsystem-under-windows-10-64-bit)
 
 I personally use Arduino 1.8.10 with not issues. I compile the firmware from the Arduino IDE, the command line build.sh was not working for me.
 
