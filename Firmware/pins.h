@@ -21,6 +21,10 @@
 #include "pins_Einsy_1_0.h"
 #endif //MOTHERBOARD == BOARD_EINSY_1_0a
 
+#if MOTHERBOARD == BOARD_MKS_GENL_2_0 //400
+#include "pins_mks_genl_2_0.h"
+#endif //MOTHERBOARD == BOARD_MKS_GENL_2_0
+
 #ifndef KNOWN_BOARD
 #error Unknown MOTHERBOARD value in configuration.h
 #endif
