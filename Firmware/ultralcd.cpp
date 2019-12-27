@@ -249,7 +249,9 @@ static void fil_unload_menu();
 #endif // SNMM || SNMM_V2
 static void lcd_disable_farm_mode();
 static void lcd_set_fan_check();
+#ifdef MMU_HAS_CUTTER
 static void lcd_cutter_enabled();
+#endif
 static char snmm_stop_print_menu();
 #ifdef SDCARD_SORT_ALPHA
  static void lcd_sort_type_set();
@@ -2371,7 +2373,9 @@ if(lcd_clicked())
           {
           case FilamentAction::AutoLoad:
                eFilamentAction=FilamentAction::None; // i.e. non-autoLoad
-               // no break
+               loading_flag=true;
+               enquecommand_P(PSTR("M701"));      // load filament
+               break;
           case FilamentAction::Load:
                loading_flag=true;
                enquecommand_P(PSTR("M701"));      // load filament
@@ -5666,6 +5670,7 @@ do\
 }\
 while (0)
 
+#if 0
 static void lcd_check_gcode_set(void)
 {
 switch(oCheckGcode)
@@ -5684,6 +5689,7 @@ switch(oCheckGcode)
      }
 eeprom_update_byte((uint8_t*)EEPROM_CHECK_GCODE,(uint8_t)oCheckGcode);
 }
+#endif
 
 #define SETTINGS_GCODE \
 do\
@@ -7569,7 +7575,8 @@ bool lcd_selftest()
 			break;
 		case FanCheck::SwappedFan:
 			_swapped_fan = true;
-			// no break
+			_result = true;
+			break;
 		default:
 			_result = true;
 			break;
@@ -7592,7 +7599,8 @@ bool lcd_selftest()
 			break;
 		case FanCheck::SwappedFan:
 			_swapped_fan = true;
-			// no break
+			_result = true;
+			break;
 		default:
 			_result = true;
 			break;
