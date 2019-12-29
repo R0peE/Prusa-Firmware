@@ -17,7 +17,9 @@ There are two branches:
  - klone-MK3 is following the MK3 branch with MKS GEN L mods
  - klone_gen_l is following the latest release 3.8.0 from the PrusaResearch tree
 
-The firmware compiles and boots on the board. Thermistors seem to be working. LCD seems to be working. I have not tested the stepper drivers yet. I'm waiting for the drivers to arrive.
+The firmware compiles and boots on the board. LCD and serial communication is working. Temperature control on the hotend and the bed is working. Fan control is working. Sensorless homing is working, but my require some adjustments of the thresholds to match your motors. PINDA is working and temperature reading from the probe are working.
+
+I was able to complete the self test as well as the xyz calibration procedure.
 
 Note
 ---
