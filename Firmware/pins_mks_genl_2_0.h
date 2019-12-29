@@ -52,17 +52,17 @@
 #define Z_STEP_PIN          46
 #define Z_DIR_PIN           48
 #define Z_MIN_PIN           19 // Y+ in the board PINDA
-#define Z_MAX_PIN           -1
+#define Z_MAX_PIN           43
 //#define Z_MAX_PIN           Z_TMC2130_DIAG
 #define Z_ENABLE_PIN        62 // A8
 #define Z_MS1_PIN           -1
 #define Z_MS2_PIN           -1
 
 #define HEATER_BED_PIN       8
-#define TEMP_BED_PIN         13 //A13
+#define TEMP_BED_PIN         14 //A14
 
 #define HEATER_0_PIN         10 //PE5
-#define TEMP_0_PIN           14 //A14
+#define TEMP_0_PIN           13 //A13
 
 #define HEATER_1_PIN        -1
 #define TEMP_1_PIN          -1
