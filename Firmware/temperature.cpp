@@ -1457,9 +1457,9 @@ void disable_heater()
   #if defined(TEMP_BED_PIN) && TEMP_BED_PIN > -1
     target_temperature_bed=0;
     soft_pwm_bed=0;
-	timer02_set_pwm0(soft_pwm_bed << 1);
-    #if defined(HEATER_BED_PIN) && HEATER_BED_PIN > -1
-      //WRITE(HEATER_BED_PIN,LOW);
+    timer02_set_pwm0(soft_pwm_bed << 1);
+    #if defined(OLD_BED_HEATER) && defined(HEATER_BED_PIN) && HEATER_BED_PIN > -1
+      WRITE(HEATER_BED_PIN,LOW);
     #endif
   #endif 
 }
@@ -1528,8 +1528,8 @@ void min_temp_error(uint8_t e) {
 }
 
 void bed_max_temp_error(void) {
-#if HEATER_BED_PIN > -1
-  //WRITE(HEATER_BED_PIN, 0);
+#if defined(OLD_BED_HEATER) && HEATER_BED_PIN > -1
+  WRITE(HEATER_BED_PIN, 0);
 #endif
   if(IsStopped() == false) {
     SERIAL_ERROR_START;
@@ -1547,8 +1547,8 @@ void bed_min_temp_error(void) {
 	return;
 #endif
 //if (current_temperature_ambient < MINTEMP_MINAMBIENT) return;
-#if HEATER_BED_PIN > -1
-    //WRITE(HEATER_BED_PIN, 0);
+#if defined(OLD_BED_HEATER) && HEATER_BED_PIN > -1
+    WRITE(HEATER_BED_PIN, 0);
 #endif
 	static const char err[] PROGMEM = "Err: MINTEMP BED";
     if(IsStopped() == false) {
@@ -1681,8 +1681,8 @@ ISR(TIMER0_COMPB_vect)
   static unsigned char state_timer_heater_2 = 0;
 #endif 
 #endif
-#if HEATER_BED_PIN > -1
-  // @@DR static unsigned char soft_pwm_b;
+#if defined(OLD_BED_HEATER) && HEATER_BED_PIN > -1
+  static unsigned char soft_pwm_b;
 #ifdef SLOW_PWM_HEATERS
   static unsigned char state_heater_b = 0;
   static unsigned char state_timer_heater_b = 0;
@@ -1733,6 +1733,12 @@ ISR(TIMER0_COMPB_vect)
 	//if(soft_pwm_b > 0) WRITE(HEATER_BED_PIN,1); else WRITE(HEATER_BED_PIN,0);
 #  endif //SYSTEM_TIMER_2
   }
+#elif defined(OLD_BED_HEATER)
+  if (pwm_count == 0)
+  {
+    soft_pwm_b = soft_pwm_bed;
+    if(soft_pwm_b > 0) WRITE(HEATER_BED_PIN,1); else WRITE(HEATER_BED_PIN,0);
+  }
 #endif
 #endif
   
@@ -1765,6 +1771,11 @@ ISR(TIMER0_COMPB_vect)
   }
   //WRITE(HEATER_BED_PIN, pwm_count & 1 );
 #endif
+#elif defined(OLD_BED_HEATER) && defined(HEATER_BED_PIN) && HEATER_BED_PIN > -1
+  if(soft_pwm_b < pwm_count)
+  {
+    WRITE(HEATER_BED_PIN,0);
+  }
 #endif
 #ifdef FAN_SOFT_PWM
   if (soft_pwm_fan < (pwm_count & ((1 << FAN_SOFT_PWM_BITS) - 1))) WRITE(FAN_PIN,0);
