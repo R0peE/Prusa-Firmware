@@ -29,6 +29,7 @@
 // PSU
 #define PSU_Delta                                 // uncomment if DeltaElectronics PSU installed
 #define OLD_BED_HEATER
+#define MAX_FAN_SPEED 144
 
 // Uncomment the below for the E3D PT100 temperature sensor (with or without PT100 Amplifier)
 //#define E3D_PT100_EXTRUDER_WITH_AMP
@@ -260,7 +261,7 @@
 #define TMC2130_SG_HOMING       1     // stallguard homing
 #define TMC2130_SG_THRS_X       3     // stallguard sensitivity for X axis
 #define TMC2130_SG_THRS_Y       3     // stallguard sensitivity for Y axis
-#define TMC2130_SG_THRS_Z       30    // stallguard sensitivity for Z axis
+#define TMC2130_SG_THRS_Z       50    // stallguard sensitivity for Z axis
 #define TMC2130_SG_THRS_E       3     // stallguard sensitivity for E axis
 #define TMC2130_SG_THRS_HOME {3, 3, TMC2130_SG_THRS_Z, TMC2130_SG_THRS_E}
 
@@ -321,9 +322,9 @@
 //#define  DEFAULT_Kp 40.925
 //#define  DEFAULT_Ki 4.875
 //#define  DEFAULT_Kd 86.085
-#define  DEFAULT_Kp 16.13
-#define  DEFAULT_Ki 1.1625
-#define  DEFAULT_Kd 56.23
+#define  DEFAULT_Kp 28.32
+#define  DEFAULT_Ki 3.05
+#define  DEFAULT_Kd 65.71
 #endif
 
 // Extrude mintemp

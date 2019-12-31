@@ -6179,9 +6179,16 @@ Sigma_Exit:
       case 106: // M106 Sxxx Fan On S<speed> 0 .. 255
         if (code_seen('S')){
            fanSpeed=constrain(code_value(),0,255);
+#if defined(MAX_FAN_SPEED)
+           fanSpeed=map(fanSpeed, 0, 255, 0, MAX_FAN_SPEED);
+#endif           
         }
         else {
+#if defined(MAX_FAN_SPEED)
+          fanSpeed=MAX_FAN_SPEED;
+#else
           fanSpeed=255;
+#endif          
         }
         break;
 
