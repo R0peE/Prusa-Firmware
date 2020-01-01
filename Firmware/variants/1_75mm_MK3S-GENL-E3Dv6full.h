@@ -29,7 +29,7 @@
 // PSU
 #define PSU_Delta                                 // uncomment if DeltaElectronics PSU installed
 #define OLD_BED_HEATER
-#define MAX_FAN_SPEED 144
+#define MAX_FAN_SPEED   255  // Fan speed is ok with silicone sock on the hotend, otherwise 128 was good value
 
 // Uncomment the below for the E3D PT100 temperature sensor (with or without PT100 Amplifier)
 //#define E3D_PT100_EXTRUDER_WITH_AMP
@@ -261,14 +261,14 @@
 #define TMC2130_SG_HOMING       1     // stallguard homing
 #define TMC2130_SG_THRS_X       2     // stallguard sensitivity for X axis
 #define TMC2130_SG_THRS_Y       2     // stallguard sensitivity for Y axis
-#define TMC2130_SG_THRS_Z       50    // stallguard sensitivity for Z axis
+#define TMC2130_SG_THRS_Z       25    // stallguard sensitivity for Z axis
 #define TMC2130_SG_THRS_E       3     // stallguard sensitivity for E axis
 #define TMC2130_SG_THRS_HOME {3, 3, TMC2130_SG_THRS_Z, TMC2130_SG_THRS_E}
 
 //new settings is possible for vsense = 1, running current value > 31 set vsense to zero and shift both currents by 1 bit right (Z axis only)
-#define TMC2130_CURRENTS_H {10, 12, 17, 15}  // default holding currents for all axes
-#define TMC2130_CURRENTS_R {10, 12, 20, 17}  // default running currents for all axes
-#define TMC2130_CURRENTS_R_HOME {5, 6, 14, 9}  // homing running currents for all axes
+#define TMC2130_CURRENTS_H {10, 12, 10, 15}  // default holding currents for all axes
+#define TMC2130_CURRENTS_R {10, 12, 12, 17}  // default running currents for all axes
+#define TMC2130_CURRENTS_R_HOME {5, 6, 7, 9}  // homing running currents for all axes
 #define TMC2130_UNLOAD_CURRENT_R 6			 // lowe current for M600 to protect filament sensor 
 
 #define TMC2130_XY_POWERDOWN 0x00000000
@@ -322,9 +322,9 @@
 //#define  DEFAULT_Kp 40.925
 //#define  DEFAULT_Ki 4.875
 //#define  DEFAULT_Kd 86.085
-#define  DEFAULT_Kp 28.32
-#define  DEFAULT_Ki 3.05
-#define  DEFAULT_Kd 65.71
+#define  DEFAULT_Kp 28.71
+#define  DEFAULT_Ki 2.99
+#define  DEFAULT_Kd 69.00
 #endif
 
 // Extrude mintemp
