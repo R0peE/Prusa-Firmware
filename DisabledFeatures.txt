@@ -5,5 +5,5 @@ PAT9125 (no I2C support)
 W25X20CL (SPI flash) support - missing hardware
 Second Language support (no SPI flash)
 Voltage monitoring (power panic, power supply and bed power voltage monitoring)
-Ambiend thermistor (not enough thermistor inputs available)
+Ambient temperature thermistor (not enough thermistor inputs available)
 Fan tachometers (no input HW available)
