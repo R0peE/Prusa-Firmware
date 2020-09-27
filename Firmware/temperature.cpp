@@ -1215,7 +1215,7 @@ void tp_init()
   }
 #endif //BED_MAXTEMP
 
-#ifdef AMBIENT_MINTEMP
+#if defined(AMBIENT_MINTEMP) && defined(AMBIENT_THERMISTOR)
   while(analog2tempAmbient(ambient_minttemp_raw) < AMBIENT_MINTEMP) {
 #if HEATER_AMBIENT_RAW_LO_TEMP < HEATER_AMBIENT_RAW_HI_TEMP
     ambient_minttemp_raw += OVERSAMPLENR;
@@ -1224,7 +1224,7 @@ void tp_init()
 #endif
   }
 #endif //AMBIENT_MINTEMP
-#ifdef AMBIENT_MAXTEMP
+#if defined(AMBIENT_MAXTEMP) && defined(AMBIENT_THERMISTOR)
   while(analog2tempAmbient(ambient_maxttemp_raw) > AMBIENT_MAXTEMP) {
 #if HEATER_AMBIENT_RAW_LO_TEMP < HEATER_AMBIENT_RAW_HI_TEMP
     ambient_maxttemp_raw -= OVERSAMPLENR;
@@ -2115,7 +2115,7 @@ void check_max_temp()
     }
 #endif
 //ambient
-#if defined(AMBIENT_MAXTEMP) && (TEMP_SENSOR_AMBIENT != 0)
+#if defined(AMBIENT_MAXTEMP) && (TEMP_SENSOR_AMBIENT != 0) && defined(AMBIENT_THERMISTOR)
 #if AMBIENT_RAW_LO_TEMP > AMBIENT_RAW_HI_TEMP
     if (current_temperature_raw_ambient <= ambient_maxttemp_raw) {
 #else
@@ -2218,7 +2218,7 @@ void check_min_temp_bed()
 	}
 }
 
-#ifdef AMBIENT_MINTEMP
+#if defined(AMBIENT_MINTEMP) && defined(AMBIENT_THERMISTOR)
 void check_min_temp_ambient()
 {
 #if AMBIENT_RAW_LO_TEMP > AMBIENT_RAW_HI_TEMP
