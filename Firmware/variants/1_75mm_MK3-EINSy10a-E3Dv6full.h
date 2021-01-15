@@ -266,7 +266,6 @@
 #define TMC2130_CURRENTS_H {16, 20, 35, 30}  // default holding currents for all axes
 #define TMC2130_CURRENTS_R {16, 20, 35, 30}  // default running currents for all axes
 #define TMC2130_CURRENTS_R_HOME {8, 10, 20, 18}  // homing running currents for all axes
-// #define TMC2130_UNLOAD_CURRENT_R 12			 // lower current for M600 to protect filament sensor - Unused
 
 #define TMC2130_STEALTH_Z
 
@@ -294,8 +293,9 @@
 #if BED_MINTEMP_DELAY>USHRT_MAX
 #error "Check maximal allowed value @ ShortTimer (see BED_MINTEMP_DELAY definition)"
 #endif
-#define DETECT_SUPERPINDA
-#define PINDA_MINTEMP BED_MINTEMP
+#define SUPERPINDA_SUPPORT
+#define PINDA_MINTEMP 10
+//#define PINDA_TEMP_COMP //Used to enable SuperPINDA toggle menu/function
 #define AMBIENT_MINTEMP -30
 
 // Maxtemps

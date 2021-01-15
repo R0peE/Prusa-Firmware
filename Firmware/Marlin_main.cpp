@@ -4683,7 +4683,7 @@ if(eSoundMode!=e_SOUND_MODE_SILENT)
   The Original i3 Prusa MK2/s uses PINDAv1 and this calibration improves the temperature drift, but not as good as the PINDAv2.
 
   superPINDA sensor has internal temperature compensation and no thermistor output. There is no point of doing temperature calibration in such case.
-  If PINDA_THERMISTOR and DETECT_SUPERPINDA is defined during compilation, calibration is skipped with serial message "No PINDA thermistor".
+  If PINDA_THERMISTOR and SUPERPINDA_SUPPORT is defined during compilation, calibration is skipped with serial message "No PINDA thermistor".
   This can be caused also if PINDA thermistor connection is broken or PINDA temperature is lower than PINDA_MINTEMP.
 
   #### Example
@@ -5976,28 +5976,30 @@ if(eSoundMode!=e_SOUND_MODE_SILENT)
     /*!
 	### M46 - Show the assigned IP address <a href="https://reprap.org/wiki/G-code#M46:_Show_the_assigned_IP_address">M46: Show the assigned IP address.</a>
     */
-    /*
-     case 46:
+    case 46:
     {
         // M46: Prusa3D: Show the assigned IP address.
-        uint8_t ip[4];
-        bool hasIP = card.ToshibaFlashAir_GetIP(ip);
-        if (hasIP) {
-            SERIAL_ECHOPGM("Toshiba FlashAir current IP: ");
-            SERIAL_ECHO(int(ip[0]));
-            SERIAL_ECHOPGM(".");
-            SERIAL_ECHO(int(ip[1]));
-            SERIAL_ECHOPGM(".");
-            SERIAL_ECHO(int(ip[2]));
-            SERIAL_ECHOPGM(".");
-            SERIAL_ECHO(int(ip[3]));
-            SERIAL_ECHOLNPGM("");
+        if (card.ToshibaFlashAir_isEnabled()) {
+            uint8_t ip[4];
+            bool hasIP = card.ToshibaFlashAir_GetIP(ip);
+            if (hasIP) {
+                // SERIAL_PROTOCOLPGM("Toshiba FlashAir current IP: ");
+                SERIAL_PROTOCOL(int(ip[0]));
+                SERIAL_PROTOCOLPGM(".");
+                SERIAL_PROTOCOL(int(ip[1]));
+                SERIAL_PROTOCOLPGM(".");
+                SERIAL_PROTOCOL(int(ip[2]));
+                SERIAL_PROTOCOLPGM(".");
+                SERIAL_PROTOCOL(int(ip[3]));
+                SERIAL_PROTOCOLPGM("\n");
+            } else {
+                SERIAL_PROTOCOLPGM("?Toshiba FlashAir GetIP failed\n");          
+            }
         } else {
-            SERIAL_ECHOLNPGM("Toshiba FlashAir GetIP failed");          
+            SERIAL_PROTOCOLPGM("n/a\n");          
         }
         break;
     }
-    */
 
     /*!
 	### M47 - Show end stops dialog on the display <a href="https://reprap.org/wiki/G-code#M47:_Show_end_stops_dialog_on_the_display">M47: Show end stops dialog on the display</a>
@@ -9581,7 +9583,7 @@ static uint16_t nFSCheckCount=0;
 		bInhibitFlag=bInhibitFlag||bMenuFSDetect; // Settings::HWsetup::FSdetect menu active
 #endif // IR_SENSOR_ANALOG
 #endif // IR_SENSOR
-		if ((mcode_in_progress != 600) && (eFilamentAction != FilamentAction::AutoLoad) && (!bInhibitFlag)) //M600 not in progress, preHeat @ autoLoad menu not active, Support::ExtruderInfo/SensorInfo menu not active
+		if ((mcode_in_progress != 600) && (eFilamentAction != FilamentAction::AutoLoad) && (!bInhibitFlag) && (menu_menu != lcd_move_e)) //M600 not in progress, preHeat @ autoLoad menu not active, Support::ExtruderInfo/SensorInfo menu not active
 		{
 			if (!moves_planned() && !IS_SD_PRINTING && !is_usb_printing && (lcd_commands_type != LcdCommands::Layer1Cal) && ! eeprom_read_byte((uint8_t*)EEPROM_WIZARD_ACTIVE))
 			{
@@ -10582,9 +10584,9 @@ float temp_comp_interpolation(float inp_temperature) {
 #ifdef PINDA_THERMISTOR
 		constexpr int start_compensating_temp = 35;
 		temp_C[i] = start_compensating_temp + i * 5; //temperature in degrees C
-#ifdef DETECT_SUPERPINDA
-		static_assert(start_compensating_temp >= PINDA_MINTEMP, "Temperature compensation start point is lower than PINDA_MINTEMP.");
-#endif //DETECT_SUPERPINDA
+#ifdef SUPERPINDA_SUPPORT
+    static_assert(start_compensating_temp >= PINDA_MINTEMP, "Temperature compensation start point is lower than PINDA_MINTEMP.");
+#endif //SUPERPINDA_SUPPORT
 #else
 		temp_C[i] = 50 + i * 10; //temperature in C
 #endif
