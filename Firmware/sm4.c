@@ -173,12 +173,28 @@ void sm4_set_dir_bits(uint8_t dir_bits)
 void sm4_do_step(uint8_t axes_mask)
 {
 #if ((MOTHERBOARD == BOARD_RAMBO_MINI_1_0) || (MOTHERBOARD == BOARD_RAMBO_MINI_1_3) || (MOTHERBOARD == BOARD_EINSY_1_0a))
+#ifdef TMC2130_DEDGE_STEPPING
+	PINC = (axes_mask & 0x0f); // toggle step signals by mask
+#else
     register uint8_t portC = PORTC & 0xf0;
 	PORTC = portC | (axes_mask & 0x0f); //set step signals by mask
 	asm("nop");
 	PORTC = portC; //set step signals to zero
 	asm("nop");
+#endif // TMC2130_DEDGE_STEPPING	
 #elif (MOTHERBOARD == BOARD_MKS_GENL_2_0)
+#ifdef TMC2130_DEDGE_STEPPING
+	register uint8_t maskF = 0;
+	register uint8_t maskL = 0;
+	register uint8_t maskA = 0;
+	if (axes_mask & 1) maskF |= 1;
+	if (axes_mask & 2) maskF |= 0x40;
+	if (axes_mask & 4) maskL = 0x08;
+	if (axes_mask & 8) maskA = 0x10;
+	PINF = maskF;
+	PINL = maskL;
+	PINA = maskA;
+#else
 	register uint8_t portF = PORTF & (~(0x40 | 0x01));
 	register uint8_t portL = PORTL & (~0x08);
 	register uint8_t portA = PORTA & (~0x10);
@@ -192,6 +208,7 @@ void sm4_do_step(uint8_t axes_mask)
 	PORTF = portF & (~(0x40 | 0x01));
 	PORTL = portL & (~0x08);
 	PORTA = portA & (~0x10);
+#endif // TMC2130_DEDGE_STEPPING
 #endif //((MOTHERBOARD == BOARD_RAMBO_MINI_1_0) || (MOTHERBOARD == BOARD_RAMBO_MINI_1_3) || (MOTHERBOARD == BOARD_EINSY_1_0a))
 }
 
