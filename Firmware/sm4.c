@@ -162,9 +162,9 @@ void sm4_set_dir_bits(uint8_t dir_bits)
     register uint8_t portF = PORTF & (~(0x80 | 0x02));
 	dir_bits ^= 0x0a; //invert YE, do not invert XZ
 	if (dir_bits & 1) portF |= 2;						//set X direction bit
-	if (dir_bits & 2) portF |= 0x80;						//set Y direction bit
+	if (dir_bits & 2) portF |= 0x80;					//set Y direction bit
 	if (dir_bits & 4) PORTL |= 2; else PORTL &= ~2;		//set Z direction bit
-	if (dir_bits & 8) PORTA |= 0x40; else PORTA &= ~0x40;	//set E direction bit
+	if (dir_bits & 8) PORTA |= 0x40; else PORTA &= ~0x40; //set E direction bit
 	PORTF = portF;
 #endif
 	asm("nop");
