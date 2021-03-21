@@ -1,0 +1,9 @@
+UART2 i/o code (pins are not available)
+MMU support due to mising second serial interface (UART2)
+SWI2C support (pins are not available)
+PAT9125 (no I2C support)
+W25X20CL (SPI flash) support - missing hardware
+Second Language support (no SPI flash)
+Voltage monitoring (power panic, power supply and bed power voltage monitoring)
+Ambient temperature thermistor (not enough thermistor inputs available)
+Fan tachometers (no input HW available)

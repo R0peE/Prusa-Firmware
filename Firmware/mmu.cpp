@@ -1,6 +1,7 @@
 //! @file
 
 #include "mmu.h"
+
 #include "planner.h"
 #include "language.h"
 #include "lcd.h"
@@ -104,14 +105,20 @@ static const auto FDEBUG_PRINTF_P = printf_P;
 //clear rx buffer
 void mmu_clr_rx_buf(void)
 {
+#if (MOTHERBOARD != BOARD_MKS_GENL_2_0)
 	while (fgetc(uart2io) >= 0);
+#endif // MOTHERBOARD == BOARD_MKS_GENL_2_0
 }
 
 //send command - puts
 int mmu_puts_P(const char* str)
 {
 	mmu_clr_rx_buf();                          //clear rx buffer
+#if (MOTHERBOARD != BOARD_MKS_GENL_2_0)
     int r = fputs_P(str, uart2io);             //send command
+#else
+    int r = 0;	
+#endif // MOTHERBOARD == BOARD_MKS_GENL_2_0
 	mmu_last_request = _millis();
 	return r;
 }
@@ -122,7 +129,11 @@ int mmu_printf_P(const char* format, ...)
 	va_list args;
 	va_start(args, format);
 	mmu_clr_rx_buf();                          //clear rx buffer
+#if (MOTHERBOARD != BOARD_MKS_GENL_2_0)
 	int r = vfprintf_P(uart2io, format, args); //send command
+#else
+    int r = 0;	
+#endif // MOTHERBOARD == BOARD_MKS_GENL_2_0
 	va_end(args);
 	mmu_last_request = _millis();
 	return r;
@@ -151,7 +162,9 @@ void mmu_init(void)
 	digitalWrite(MMU_RST_PIN, HIGH);
 	pinMode(MMU_RST_PIN, OUTPUT);              //setup reset pin
 #endif //MMU_HWRESET
+#if (MOTHERBOARD != BOARD_MKS_GENL_2_0)
 	uart2_init();                              //init uart2
+#endif // MOTHERBOARD == BOARD_MKS_GENL_2_0
 	_delay_ms(10);                             //wait 10ms for sure
 	mmu_reset();                               //reset mmu (HW or SW), do not wait for response
 	mmu_state = S::Init;
@@ -221,7 +234,9 @@ void mmu_loop(void)
 	case S::GetVersion:
 		if (mmu_rx_ok() > 0)
 		{
+#if (MOTHERBOARD != BOARD_MKS_GENL_2_0)
 			fscanf_P(uart2io, PSTR("%u"), &mmu_version); //scan version from buffer
+#endif // MOTHERBOARD == BOARD_MKS_GENL_2_0
 			DEBUG_PRINTF_P(PSTR("MMU => '%dok'\n"), mmu_version);
 			DEBUG_PUTS_P(PSTR("MMU <= 'S2'"));
 			mmu_puts_P(PSTR("S2\n")); //send 'read buildnr' request
@@ -231,7 +246,9 @@ void mmu_loop(void)
 	case S::GetBuildNr:
 		if (mmu_rx_ok() > 0)
 		{
+#if (MOTHERBOARD != BOARD_MKS_GENL_2_0)
 			fscanf_P(uart2io, PSTR("%u"), &mmu_buildnr); //scan buildnr from buffer
+#endif // MOTHERBOARD == BOARD_MKS_GENL_2_0
 			DEBUG_PRINTF_P(PSTR("MMU => '%dok'\n"), mmu_buildnr);
 			bool version_valid = mmu_check_version();
 			if (!version_valid) mmu_show_warning();
@@ -263,7 +280,9 @@ void mmu_loop(void)
 	case S::GetFindaInit:
 		if (mmu_rx_ok() > 0)
 		{
+#if (MOTHERBOARD != BOARD_MKS_GENL_2_0)
 			fscanf_P(uart2io, PSTR("%hhu"), &mmu_finda); //scan finda from buffer
+#endif // MOTHERBOARD == BOARD_MKS_GENL_2_0
 			mmu_last_finda_response = _millis();
 			FDEBUG_PRINTF_P(PSTR("MMU => '%dok'\n"), mmu_finda);
 			puts_P(PSTR("MMU - ENABLED"));
@@ -376,7 +395,9 @@ void mmu_loop(void)
         }
 		if (mmu_rx_ok() > 0)
 		{
+#if (MOTHERBOARD != BOARD_MKS_GENL_2_0)
 			fscanf_P(uart2io, PSTR("%hhu"), &mmu_finda); //scan finda from buffer
+#endif // MOTHERBOARD == BOARD_MKS_GENL_2_0
 			mmu_last_finda_response = _millis();
 			FDEBUG_PRINTF_P(PSTR("MMU => '%dok'\n"), mmu_finda);
 			//printf_P(PSTR("Eact: %d\n"), int(e_active()));
@@ -460,7 +481,9 @@ void mmu_loop(void)
 	case S::GetDrvError:
 		if (mmu_rx_ok() > 0)
 		{
+#if (MOTHERBOARD != BOARD_MKS_GENL_2_0)
 			fscanf_P(uart2io, PSTR("%d"), &mmu_power_failures); //scan power failures
+#endif // MOTHERBOARD == BOARD_MKS_GENL_2_0
 			DEBUG_PRINTF_P(PSTR("MMU => 'ok'\n"));
 			mmu_last_cmd = MmuCmd::None;
 			mmu_ready = true;

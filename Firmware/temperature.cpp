@@ -1218,7 +1218,7 @@ void tp_init()
   }
 #endif //BED_MAXTEMP
 
-#ifdef AMBIENT_MINTEMP
+#if defined(AMBIENT_MINTEMP) && defined(AMBIENT_THERMISTOR)
   while(analog2tempAmbient(ambient_minttemp_raw) < AMBIENT_MINTEMP) {
 #if HEATER_AMBIENT_RAW_LO_TEMP < HEATER_AMBIENT_RAW_HI_TEMP
     ambient_minttemp_raw += OVERSAMPLENR;
@@ -1227,7 +1227,7 @@ void tp_init()
 #endif
   }
 #endif //AMBIENT_MINTEMP
-#ifdef AMBIENT_MAXTEMP
+#if defined(AMBIENT_MAXTEMP) && defined(AMBIENT_THERMISTOR)
   while(analog2tempAmbient(ambient_maxttemp_raw) > AMBIENT_MAXTEMP) {
 #if HEATER_AMBIENT_RAW_LO_TEMP < HEATER_AMBIENT_RAW_HI_TEMP
     ambient_maxttemp_raw -= OVERSAMPLENR;
@@ -1462,10 +1462,10 @@ void disable_heater()
   #if defined(TEMP_BED_PIN) && TEMP_BED_PIN > -1
     target_temperature_bed=0;
     soft_pwm_bed=0;
-	timer02_set_pwm0(soft_pwm_bed << 1);
-	bedPWMDisabled = 0;
-    #if defined(HEATER_BED_PIN) && HEATER_BED_PIN > -1
-      //WRITE(HEATER_BED_PIN,LOW);
+    timer02_set_pwm0(soft_pwm_bed << 1);
+	  bedPWMDisabled = 0;
+    #if defined(OLD_BED_HEATER) && defined(HEATER_BED_PIN) && HEATER_BED_PIN > -1
+      WRITE(HEATER_BED_PIN,LOW);
     #endif
   #endif 
 }
@@ -1725,8 +1725,8 @@ FORCE_INLINE static void temperature_isr()
   static unsigned char state_timer_heater_2 = 0;
 #endif 
 #endif
-#if HEATER_BED_PIN > -1
-  // @@DR static unsigned char soft_pwm_b;
+#if defined(OLD_BED_HEATER) && HEATER_BED_PIN > -1
+  static unsigned char soft_pwm_b;
 #ifdef SLOW_PWM_HEATERS
   static unsigned char state_heater_b = 0;
   static unsigned char state_timer_heater_b = 0;
@@ -1777,6 +1777,12 @@ FORCE_INLINE static void temperature_isr()
 	//if(soft_pwm_b > 0) WRITE(HEATER_BED_PIN,1); else WRITE(HEATER_BED_PIN,0);
 #  endif //SYSTEM_TIMER_2
   }
+#elif defined(OLD_BED_HEATER)
+  if (pwm_count == 0)
+  {
+    soft_pwm_b = soft_pwm_bed;
+    if(soft_pwm_b > 0) WRITE(HEATER_BED_PIN,1); else WRITE(HEATER_BED_PIN,0);
+  }
 #endif
 #endif
   
@@ -1809,6 +1815,11 @@ FORCE_INLINE static void temperature_isr()
   }
   //WRITE(HEATER_BED_PIN, pwm_count & 1 );
 #endif
+#elif defined(OLD_BED_HEATER) && defined(HEATER_BED_PIN) && HEATER_BED_PIN > -1
+  if(soft_pwm_b < pwm_count)
+  {
+    WRITE(HEATER_BED_PIN,0);
+  }
 #endif
 #ifdef FAN_SOFT_PWM
   if (soft_pwm_fan < (pwm_count & ((1 << FAN_SOFT_PWM_BITS) - 1))) WRITE(FAN_PIN,0);
@@ -2107,7 +2118,7 @@ void check_max_temp()
     }
 #endif
 //ambient
-#if defined(AMBIENT_MAXTEMP) && (TEMP_SENSOR_AMBIENT != 0)
+#if defined(AMBIENT_MAXTEMP) && (TEMP_SENSOR_AMBIENT != 0) && defined(AMBIENT_THERMISTOR)
 #if AMBIENT_RAW_LO_TEMP > AMBIENT_RAW_HI_TEMP
     if (current_temperature_raw_ambient <= ambient_maxttemp_raw) {
 #else
@@ -2210,7 +2221,7 @@ void check_min_temp_bed()
 	}
 }
 
-#ifdef AMBIENT_MINTEMP
+#if defined(AMBIENT_MINTEMP) && defined(AMBIENT_THERMISTOR)
 void check_min_temp_ambient()
 {
 #if AMBIENT_RAW_LO_TEMP > AMBIENT_RAW_HI_TEMP

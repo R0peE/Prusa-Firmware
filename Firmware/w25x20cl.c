@@ -6,6 +6,10 @@
 #include "spi.h"
 #include "fastio.h"
 
+#include "boards.h"
+#include "Configuration_prusa.h"
+
+#ifdef W25X20CL
 #define _MFRID             0xEF
 #define _DEVID             0x11
 
@@ -182,3 +186,5 @@ void w25x20cl_wait_busy(void)
 {
 	while (w25x20cl_rd_status_reg() & W25X20CL_STATUS_BUSY) ;
 }
+
+#endif // W25X20CL

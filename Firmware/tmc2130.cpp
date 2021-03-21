@@ -166,7 +166,7 @@ void tmc2130_init()
 	for (uint_least8_t axis = 0; axis < 2; axis++) // X Y axes
 	{
 		tmc2130_setup_chopper(axis, tmc2130_mres[axis], tmc2130_current_h[axis], tmc2130_current_r[axis]);
-		tmc2130_wr(axis, TMC2130_REG_TPOWERDOWN, 0x00000000);
+		tmc2130_wr(axis, TMC2130_REG_TPOWERDOWN, TMC2130_XY_POWERDOWN);
 		tmc2130_wr(axis, TMC2130_REG_COOLCONF, (((uint32_t)tmc2130_sg_thr[axis]) << 16));
 		tmc2130_wr(axis, TMC2130_REG_TCOOLTHRS, (tmc2130_mode == TMC2130_MODE_SILENT)?0:__tcoolthrs(axis));
 		tmc2130_wr(axis, TMC2130_REG_GCONF, (tmc2130_mode == TMC2130_MODE_SILENT)?TMC2130_GCONF_SILENT:TMC2130_GCONF_SGSENS);
@@ -177,7 +177,7 @@ void tmc2130_init()
 	for (uint_least8_t axis = 2; axis < 3; axis++) // Z axis
 	{
 		tmc2130_setup_chopper(axis, tmc2130_mres[axis], tmc2130_current_h[axis], tmc2130_current_r[axis]);
-		tmc2130_wr(axis, TMC2130_REG_TPOWERDOWN, 0x00000000);
+		tmc2130_wr(axis, TMC2130_REG_TPOWERDOWN, TMC2130_Z_POWERDOWN);
 #ifndef TMC2130_STEALTH_Z
 		tmc2130_wr(axis, TMC2130_REG_GCONF, TMC2130_GCONF_SGSENS);
 #else //TMC2130_STEALTH_Z
@@ -191,7 +191,7 @@ void tmc2130_init()
 	for (uint_least8_t axis = 3; axis < 4; axis++) // E axis
 	{
 		tmc2130_setup_chopper(axis, tmc2130_mres[axis], tmc2130_current_h[axis], tmc2130_current_r[axis]);
-		tmc2130_wr(axis, TMC2130_REG_TPOWERDOWN, 0x00000000);
+		tmc2130_wr(axis, TMC2130_REG_TPOWERDOWN, TMC2130_E_POWERDOWN);
 #ifndef TMC2130_STEALTH_E
 		tmc2130_wr(axis, TMC2130_REG_GCONF, TMC2130_GCONF_SGSENS);
 #else //TMC2130_STEALTH_E
@@ -467,7 +467,7 @@ void tmc2130_setup_chopper(uint8_t axis, uint8_t mres, uint8_t current_h, uint8_
 #endif
 //	DBG(_n("tmc2130_setup_chopper(axis=%hhd, mres=%hhd, curh=%hhd, curr=%hhd\n"), axis, mres, current_h, current_r);
 //	DBG(_n(" toff=%hhd, hstr=%hhd, hend=%hhd, tbl=%hhd\n"), toff, hstrt, hend, tbl);
-	if (current_r <= 31)
+	if (current_r <= 31 && current_h <= 31)
 	{
 		tmc2130_wr_CHOPCONF(axis, toff, hstrt, hend, fd3, 0, rndtf, chm, tbl, 1, 0, 0, 0, mres, intpol, dedge, 0);
 		tmc2130_wr(axis, TMC2130_REG_IHOLD_IRUN, 0x000f0000 | ((current_r & 0x1f) << 8) | (current_h & 0x1f));

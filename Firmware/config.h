@@ -1,6 +1,8 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
+#include "boards.h"
+#include "Configuration_prusa.h"
 
 #include "Configuration_prusa.h"
 #include "pins.h"
@@ -10,6 +12,7 @@
 #endif
 
 //ADC configuration
+#if (MOTHERBOARD != BOARD_MKS_GENL_2_0)
 #ifndef IR_SENSOR_ANALOG
 #define ADC_CHAN_MSK      0b0000001001011111 //used AD channels bit mask (0,1,2,3,4,6,9)
 #define ADC_DIDR_MSK      0b0000001001011111 //AD channels DIDR mask (1 ~ disabled digital input)
@@ -19,15 +22,20 @@
 #define ADC_DIDR_MSK      0b0000001001011111 //AD channels DIDR mask (1 ~ disabled digital input)
 #define ADC_CHAN_CNT      8         //number of used channels)
 #endif //!IR_SENSOR_ANALOG
+#else // (MOTHERBOARD == BOARD_MKS_GENL_2_0)
+#define ADC_CHAN_MSK      0b1110000000000000 //used AD channels bit mask (0,1,2,3,4,6,9)
+#define ADC_DIDR_MSK      0b1110000000000000 //AD channels DIDR mask (1 ~ disabled digital input)
+#define ADC_CHAN_CNT      3         //number of used channels)
+#endif
 #define ADC_OVRSAMPL      16        //oversampling multiplier
 #define ADC_CALLBACK      adc_ready //callback function ()
 
 //SWI2C configuration
 //#define SWI2C_SDA         20 //SDA on P3
 //#define SWI2C_SCL         21 //SCL on P3
-#define SWI2C_A8
-#define SWI2C_DEL         20 //2us clock delay
-#define SWI2C_TMO         2048 //2048 cycles timeout
+//#define SWI2C_A8
+//#define SWI2C_DEL         20 //2us clock delay
+//#define SWI2C_TMO         2048 //2048 cycles timeout
 
 //PAT9125 configuration
 //#define PAT9125_SWSPI // software SPI mode (incomplete)
@@ -54,6 +62,7 @@
 #define TMC2130_SPCR           SPI_SPCR(TMC2130_SPI_RATE, 1, 1, 1, 0)
 #define TMC2130_SPSR           SPI_SPSR(TMC2130_SPI_RATE)
 
+#ifdef W25X20CL
 //W25X20CL configuration
 //pinout:
 #define W25X20CL_PIN_CS        32
@@ -61,10 +70,11 @@
 #define W25X20CL_SPI_RATE      0 // fosc/4 = 4MHz
 #define W25X20CL_SPCR          SPI_SPCR(W25X20CL_SPI_RATE, 1, 1, 1, 0)
 #define W25X20CL_SPSR          SPI_SPSR(W25X20CL_SPI_RATE)
+#endif // W25X20CL
 
 //LANG - Multi-language support
-//#define LANG_MODE              0 // primary language only
-#define LANG_MODE              1 // sec. language support
+#define LANG_MODE              0 // primary language only
+//#define LANG_MODE              1 // sec. language support
 
 #define LANG_SIZE_RESERVED     0x3000 // reserved space for secondary language (12288 bytes)
 

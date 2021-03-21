@@ -248,7 +248,9 @@ static void fil_unload_menu();
 #endif // SNMM || SNMM_V2
 static void lcd_disable_farm_mode();
 static void lcd_set_fan_check();
+#ifdef MMU_HAS_CUTTER
 static void lcd_cutter_enabled();
+#endif
 #ifdef SNMM
 static char snmm_stop_print_menu();
 #endif //SNMM
@@ -2090,7 +2092,9 @@ if(lcd_clicked())
           {
           case FilamentAction::AutoLoad:
                eFilamentAction=FilamentAction::None; // i.e. non-autoLoad
-               // no break
+               loading_flag=true;
+               enquecommand_P(PSTR("M701"));      // load filament
+               break;
           case FilamentAction::Load:
                loading_flag=true;
                enquecommand_P(PSTR("M701"));      // load filament
@@ -7396,7 +7400,8 @@ bool lcd_selftest()
 			break;
 		case FanCheck::SwappedFan:
 			_swapped_fan = true;
-			// no break
+			_result = true;
+			break;
 		default:
 			_result = true;
 			break;
@@ -7419,7 +7424,8 @@ bool lcd_selftest()
 			break;
 		case FanCheck::SwappedFan:
 			_swapped_fan = true;
-			// no break
+			_result = true;
+			break;
 		default:
 			_result = true;
 			break;

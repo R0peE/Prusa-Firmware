@@ -870,7 +870,7 @@ void show_fw_version_warnings() {
 
 //! @brief try to check if firmware is on right type of printer
 static void check_if_fw_is_on_right_printer(){
-#ifdef FILAMENT_SENSOR
+#if defined(FILAMENT_SENSOR) && defined(SWI2C)
   if((PRINTER_TYPE == PRINTER_MK3) || (PRINTER_TYPE == PRINTER_MK3S)){
     #ifdef IR_SENSOR
       if (pat9125_probe()){
@@ -881,7 +881,8 @@ static void check_if_fw_is_on_right_printer(){
       //will return 1 only if IR can detect filament in bondtech extruder so this may fail even when we have IR sensor
       const uint8_t ir_detected = !READ(IR_SENSOR_PIN);
       if (ir_detected){
-        lcd_show_fullscreen_message_and_wait_P(_i("MK3 firmware detected on MK3S printer"));}////c=20 r=3
+        lcd_show_fullscreen_message_and_wait_P(_i("MK3 firmware detected on MK3S printer"));
+      }////c=20 r=3
     #endif //PAT9125
   }
 #endif //FILAMENT_SENSOR
@@ -6660,9 +6661,16 @@ Sigma_Exit:
       case 106: // M106 Sxxx Fan On S<speed> 0 .. 255
         if (code_seen('S')){
            fanSpeed=constrain(code_value(),0,255);
+#if defined(MAX_FAN_SPEED)
+           fanSpeed=map(fanSpeed, 0, 255, 0, MAX_FAN_SPEED);
+#endif           
         }
         else {
+#if defined(MAX_FAN_SPEED)
+          fanSpeed=MAX_FAN_SPEED;
+#else
           fanSpeed=255;
+#endif          
         }
         break;
 

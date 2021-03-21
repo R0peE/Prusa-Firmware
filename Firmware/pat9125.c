@@ -5,6 +5,10 @@
 #include "config.h"
 #include <stdio.h>
 
+#include "boards.h"
+#include "Configuration_prusa.h"
+
+#ifdef PAT9125
 
 //PAT9125 registers
 #define PAT9125_PID1			0x00
@@ -301,3 +305,5 @@ uint8_t pat9125_wr_reg_verify(uint8_t addr, uint8_t data)
 	pat9125_wr_reg(addr, data);
 	return pat9125_rd_reg(addr) == data;
 }
+
+#endif // PAT9125

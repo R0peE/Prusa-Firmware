@@ -1,5 +1,11 @@
 //uart2.c
 #include "uart2.h"
+
+#include "boards.h"
+#include "Configuration_prusa.h"
+
+#if (MOTHERBOARD != BOARD_MKS_GENL_2_0)
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
@@ -83,3 +89,8 @@ ISR(USART2_RX_vect)
 	}
 }
 
+#else
+int8_t uart2_rx_str_P(const char* str) {
+	return 0;
+}
+#endif // MOTHERBOARD != BOARD_MKS_GENL_2_0
