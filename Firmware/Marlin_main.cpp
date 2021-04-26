@@ -3623,12 +3623,12 @@ static T gcode_M600_filament_change_z_shift()
 #ifdef FILAMENTCHANGE_ZADD
 	static_assert(Z_MAX_POS < (255 - FILAMENTCHANGE_ZADD), "Z-range too high, change the T type from uint8_t to uint16_t");
 	// avoid floating point arithmetics when not necessary - results in shorter code
+	T z_shift = T(FILAMENTCHANGE_ZADD); // always move above printout
 	T ztmp = T( current_position[Z_AXIS] );
-	T z_shift = 0;
-	if(ztmp < T(25)){
-		z_shift = T(25) - ztmp; // make sure to be at least 25mm above the heat bed
-	} 
-	return z_shift + T(FILAMENTCHANGE_ZADD); // always move above printout
+	if((ztmp + z_shift) < T(MIN_Z_FOR_SWAP)){
+		z_shift = T(MIN_Z_FOR_SWAP) - ztmp; // make sure to be at least 25mm above the heat bed
+	}
+	return z_shift;
 #else
 	return T(0);
 #endif
@@ -3677,7 +3677,7 @@ static void gcode_M600(bool automatic, float x_position, float y_position, float
 
     // Unload filament
     if (mmu_enabled) extr_unload();	//unload just current filament for multimaterial printers (used also in M702)
-    else unload_filament(); //unload filament for single material (used also in M702)
+    else unload_filament(true); //unload filament for single material (used also in M702)
     //finish moves
     st_synchronize();
 
@@ -3964,6 +3964,8 @@ static void extended_capabilities_report()
 #endif //FANCHECK and TACH_0 or TACH_1
     // AUTOREPORT_POSITION (M114)
     cap_line(PSTR("AUTOREPORT_POSITION"), ENABLED(AUTO_REPORT));
+    // EXTENDED_M20 (support for L and T parameters)
+    cap_line(PSTR("EXTENDED_M20"), 1);
     //@todo Update RepRap cap
 }
 #endif //EXTENDED_CAPABILITIES_REPORT
@@ -5740,16 +5742,17 @@ if(eSoundMode!=e_SOUND_MODE_SILENT)
 	### M20 - SD Card file list <a href="https://reprap.org/wiki/G-code#M20:_List_SD_card">M20: List SD card</a>
     #### Usage
     
-        M20 [ L ]
+        M20 [ L | T ]
     #### Parameters
-    - `L` - Reports ling filenames instead of just short filenames. Requires host software parsing.
+    - `T` - Report timestamps as well. The value is one uint32_t encoded as hex. Requires host software parsing (Cap:EXTENDED_M20).
+    - `L` - Reports long filenames instead of just short filenames. Requires host software parsing (Cap:EXTENDED_M20).
     */
     case 20:
       KEEPALIVE_STATE(NOT_BUSY); // do not send busy messages during listing. Inhibits the output of manage_heater()
       SERIAL_PROTOCOLLNRPGM(_N("Begin file list"));////MSG_BEGIN_FILE_LIST
-      card.ls(code_seen('L'));
+      card.ls(CardReader::ls_param(code_seen('L'), code_seen('T')));
       SERIAL_PROTOCOLLNRPGM(_N("End file list"));////MSG_END_FILE_LIST
-      break;
+    break;
 
     /*!
 	### M21 - Init SD card <a href="https://reprap.org/wiki/G-code#M21:_Initialize_SD_card">M21: Initialize SD card</a>
