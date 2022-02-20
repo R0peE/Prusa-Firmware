@@ -224,6 +224,7 @@
 #define TMC2130_INTPOL_XY   1         // extrapolate 256 for XY axes
 #define TMC2130_INTPOL_Z    1         // extrapolate 256 for Z axis
 #define TMC2130_INTPOL_E    1         // extrapolate 256 for E axis
+// #define ALLOW_ALL_MRES
 
 #define TMC2130_PWM_GRAD_X  2         // PWMCONF
 #define TMC2130_PWM_AMPL_X  230       // PWMCONF
@@ -661,6 +662,8 @@
 #define M600_TIMEOUT 600  //seconds
 
 //#define SUPPORT_VERBOSITY
+
+#define MMU_FILAMENT_COUNT 5
 
 #define MMU_REQUIRED_FW_BUILDNR 83
 #define MMU_HWRESET

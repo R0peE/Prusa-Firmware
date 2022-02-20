@@ -5,7 +5,6 @@
 #include "config.h"
 
 extern void menu_lcd_longpress_func(void);
-extern void menu_lcd_charsetup_func(void);
 extern void menu_lcd_lcdupdate_func(void);
 
 // Call with a false parameter to suppress the LCD update from various places like the planner or the temp control.
@@ -37,8 +36,6 @@ void lcd_adjust_z();
 void lcd_pick_babystep();
 void lcd_alright();
 void show_preheat_nozzle_warning();
-void EEPROM_save_B(int pos, int* value);
-void EEPROM_read_B(int pos, int* value);
 void lcd_wait_interact();
 void lcd_loading_filament();
 void lcd_change_success();
@@ -48,7 +45,7 @@ void lcd_pause_print();
 void lcd_pause_usb_print();
 void lcd_resume_print();
 void lcd_print_stop();
-void prusa_statistics(int _message, uint8_t _col_nr = 0);
+void prusa_statistics(uint8_t _message, uint8_t _col_nr = 0);
 void lcd_load_filament_color_check();
 //void lcd_mylang();
 
@@ -74,6 +71,8 @@ extern void lcd_return_to_status();
 extern void lcd_wait_for_click();
 extern bool lcd_wait_for_click_delay(uint16_t nDelay);
 extern void lcd_show_fullscreen_message_and_wait_P(const char *msg);
+// 0: no, 1: yes, -1: timeouted
+extern int8_t lcd_show_yes_no_and_wait(bool allow_timeouting = true, bool default_yes = false);
 // 0: no, 1: yes, -1: timeouted
 extern int8_t lcd_show_fullscreen_message_yes_no_and_wait_P(const char *msg, bool allow_timeouting = true, bool default_yes = false);
 extern int8_t lcd_show_multiscreen_message_two_choices_and_wait_P(const char *msg, bool allow_timeouting, bool default_yes,
@@ -127,11 +126,9 @@ enum class CustomMsg : uint_least8_t
 };
 
 extern CustomMsg custom_message_type;
-extern unsigned int custom_message_state;
+extern uint8_t custom_message_state;
 
 extern uint8_t farm_mode;
-extern int farm_timer;
-extern uint8_t farm_status;
 
 extern bool UserECoolEnabled();
 extern bool FarmOrUserECool();
@@ -168,15 +165,6 @@ void lcd_commands();
 extern bool bSettings;                            // flag (i.e. 'fake parameter') for 'lcd_hw_setup_menu()' function
 void lcd_hw_setup_menu(void);                     // NOT static due to using inside "util" module ("nozzle_diameter_check()")
 
-
-void change_extr(int extr);
-
-#ifdef SNMM
-void extr_unload_all(); 
-void extr_unload_used();
-#endif //SNMM
-void extr_unload();
-
 enum class FilamentAction : uint_least8_t
 {
     None, //!< 'none' state is used as flag for (filament) autoLoad (i.e. opposite for 'autoLoad' state)
@@ -203,12 +191,9 @@ void unload_filament(bool automatic = false);
 void lcd_printer_connected();
 void lcd_ping();
 
-void lcd_calibrate_extruder();
-
 void lcd_wait_for_heater();
 void lcd_wait_for_cool_down();
 void lcd_move_e(); // NOT static due to usage in Marlin_main
-void lcd_extr_cal_reset();
 
 void lcd_temp_cal_show_result(bool result);
 #ifdef PINDA_THERMISTOR
@@ -216,17 +201,12 @@ bool lcd_wait_for_pinda(float temp);
 #endif //PINDA_THERMISTOR
 
 
-void bowden_menu();
 char reset_menu();
 uint8_t choose_menu_P(const char *header, const char *item, const char *last_item = nullptr);
 
 void lcd_pinda_calibration_menu();
 void lcd_calibrate_pinda();
 void lcd_temp_calibration_set();
-
-void display_loading();
-
-void lcd_set_degree();
 
 #if (LANG_MODE != 0)
 void lcd_language();
