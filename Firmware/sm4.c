@@ -107,7 +107,7 @@ void sm4_set_dir(uint8_t axis, uint8_t dir)
 	case 0: if (dir == INVERT_X_DIR) PORTF |= 2; else PORTF &= ~2; break;
 	case 1: if (dir == INVERT_Y_DIR) PORTF |= 0x80; else PORTF &= ~0x80; break;
 	case 2: if (dir == INVERT_Z_DIR) PORTL |= 2; else PORTL &= ~2; break;
-	case 3: if (dir == INVERT_E_DIR) PORTA |= 0x40; else PORTA &= ~0x40; break;
+	case 3: if (dir == INVERT_E0_DIR) PORTA |= 0x40; else PORTA &= ~0x40; break;
 	//case 4: if (!dir) PORTC |= 8; else PORTC &= ~8; break;
 #endif
 	}

@@ -1102,7 +1102,7 @@ void st_init()
 #endif //TMC2130
 
   st_current_init(); //Initialize Digipot Motor Current
-  microstep_init(); //Initialize Microstepping Pins
+  //microstep_init(); //Initialize Microstepping Pins
 
   //Initialize Dir Pins
   #if defined(X_DIR_PIN) && X_DIR_PIN > -1
@@ -1623,7 +1623,7 @@ void microstep_init()
 
 
 #ifndef TMC2130
-
+#if defined(X_MS1_PIN) && X_MS1_PIN > -1
 void microstep_ms(uint8_t driver, int8_t ms1, int8_t ms2)
 {
   if(ms1 > -1) switch(driver)
@@ -1681,6 +1681,7 @@ void microstep_readings()
       SERIAL_PROTOCOLLN( READ(E1_MS2_PIN));
       #endif
 }
+#endif //Microstepping
 #endif //TMC2130
 
 
