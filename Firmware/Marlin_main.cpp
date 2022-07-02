@@ -1049,8 +1049,8 @@ static void fw_crash_init()
 
 static void xflash_err_msg()
 {
-	lcd_clear();
-	lcd_puts_P(_n("External SPI flash\nXFLASH is not res-\nponding. Language\nswitch unavailable."));
+    puts_P(_n("XFLASH not responding."));
+    lcd_show_fullscreen_message_and_wait_P(_n("External SPI flash\nXFLASH is not res-\nponding. Language\nswitch unavailable."));
 }
 
 // "Setup" function is called by the Arduino framework on startup.
@@ -1085,10 +1085,6 @@ void setup()
 #if (LANG_MODE != 0) //secondary language support
         update_sec_lang_from_external_flash();
 #endif //(LANG_MODE != 0)
-	}
-	else
-	{
-	    xflash_err_msg();
 	}
 #else
 	const bool xflash_success = true;
@@ -1322,12 +1318,6 @@ void setup()
 
 	tp_init();    // Initialize temperature loop
 
-	if (xflash_success) lcd_splash(); // we need to do this again, because tp_init() kills lcd
-	else
-	{
-	    xflash_err_msg();
-	    puts_P(_n("XFLASH not responding."));
-	}
 #ifdef EXTRUDER_ALTFAN_DETECT
 	SERIAL_ECHORPGM(_n("Extruder fan type: "));
 	if (extruder_altfan_detect())
@@ -1421,6 +1411,10 @@ void setup()
     // avoid unexpected initial shifts on the first move
     clamp_to_software_endstops(current_position);
     plan_set_position_curposXYZE();
+
+    // Show the xflash error message now that serial, lcd and encoder are available
+    if (!xflash_success)
+        xflash_err_msg();
 
 #ifdef FILAMENT_SENSOR
 	fsensor_init();
@@ -4228,9 +4222,6 @@ void process_commands()
 #endif
 
 	if (!buflen) return; //empty command
-  #ifdef FILAMENT_RUNOUT_SUPPORT
-    SET_INPUT(FR_SENS);
-  #endif
 
 #ifdef CMDBUFFER_DEBUG
   SERIAL_ECHOPGM("Processing a GCODE command: ");
@@ -4682,176 +4673,6 @@ eeprom_update_word((uint16_t*)EEPROM_NOZZLE_DIAMETER_uM,0xFFFF);
     case 0: // G0 -> G1
     case 1: // G1
       if(Stopped == false) {
-
-        #ifdef FILAMENT_RUNOUT_SUPPORT
-            
-            if(READ(FR_SENS)){
-
-                        int feedmultiplyBckp=feedmultiply;
-                        float target[4];
-                        float lastpos[4];
-                        target[X_AXIS]=current_position[X_AXIS];
-                        target[Y_AXIS]=current_position[Y_AXIS];
-                        target[Z_AXIS]=current_position[Z_AXIS];
-                        target[E_AXIS]=current_position[E_AXIS];
-                        lastpos[X_AXIS]=current_position[X_AXIS];
-                        lastpos[Y_AXIS]=current_position[Y_AXIS];
-                        lastpos[Z_AXIS]=current_position[Z_AXIS];
-                        lastpos[E_AXIS]=current_position[E_AXIS];
-                        //retract by E
-                        
-                        target[E_AXIS]+= FILAMENTCHANGE_FIRSTRETRACT ;
-                        
-                        plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 400, active_extruder);
-
-
-                        target[Z_AXIS]+= FILAMENTCHANGE_ZADD ;
-
-                        plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 300, active_extruder);
-
-                        target[X_AXIS]= FILAMENTCHANGE_XPOS ;
-                        
-                        target[Y_AXIS]= FILAMENTCHANGE_YPOS ;
-                         
-                 
-                        plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 70, active_extruder);
-
-                        target[E_AXIS]+= FILAMENTCHANGE_FINALRETRACT ;
-                          
-
-                        plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 20, active_extruder);
-
-                        //finish moves
-                        st_synchronize();
-                        //disable extruder steppers so filament can be removed
-                        disable_e0();
-                        disable_e1();
-                        disable_e2();
-                        _delay(100);
-                        
-                        //LCD_ALERTMESSAGEPGM(_T(MSG_FILAMENTCHANGE));
-                        uint8_t cnt=0;
-                        int counterBeep = 0;
-                        lcd_wait_interact();
-                        while(!lcd_clicked()){
-                          cnt++;
-                          manage_heater();
-                          manage_inactivity(true);
-                          //lcd_update(0);
-                          if(cnt==0)
-                          {
-                          #if BEEPER > 0
-                          
-                            if (counterBeep== 500){
-                              counterBeep = 0;
-                              
-                            }
-                          
-                            
-                            SET_OUTPUT(BEEPER);
-                            if (counterBeep== 0){
-if(eSoundMode!=e_SOUND_MODE_SILENT)
-                              WRITE(BEEPER,HIGH);
-                            }
-                            
-                            if (counterBeep== 20){
-                              WRITE(BEEPER,LOW);
-                            }
-                            
-                            
-                            
-                          
-                            counterBeep++;
-                          #else
-                          #endif
-                          }
-                        }
-                        
-                        WRITE(BEEPER,LOW);
-                        
-                        target[E_AXIS]+= FILAMENTCHANGE_FIRSTFEED ;
-                        plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 20, active_extruder); 
-                        
-                        
-                        target[E_AXIS]+= FILAMENTCHANGE_FINALFEED ;
-                        plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 2, active_extruder); 
-                        
-                 
-                        
-                        
-                        
-                        lcd_change_fil_state = 0;
-                        lcd_loading_filament();
-                        while ((lcd_change_fil_state == 0)||(lcd_change_fil_state != 1)){
-                        
-                          lcd_change_fil_state = 0;
-                          lcd_alright();
-                          switch(lcd_change_fil_state){
-                          
-                             case 2:
-                                     target[E_AXIS]+= FILAMENTCHANGE_FIRSTFEED ;
-                                     plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 20, active_extruder); 
-                        
-                        
-                                     target[E_AXIS]+= FILAMENTCHANGE_FINALFEED ;
-                                     plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 2, active_extruder); 
-                                      
-                                     
-                                     lcd_loading_filament();
-                                     break;
-                             case 3:
-                                     target[E_AXIS]+= FILAMENTCHANGE_FINALFEED ;
-                                     plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 2, active_extruder); 
-                                     lcd_loading_color();
-                                     break;
-                                          
-                             default:
-                                     lcd_change_success();
-                                     break;
-                          }
-                          
-                        }
-                        
-
-                        
-                      target[E_AXIS]+= 5;
-                      plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 2, active_extruder);
-                        
-                      target[E_AXIS]+= FILAMENTCHANGE_FIRSTRETRACT;
-                      plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 400, active_extruder);
-                        
-
-                        //current_position[E_AXIS]=target[E_AXIS]; //the long retract of L is compensated by manual filament feeding
-                        //plan_set_e_position(current_position[E_AXIS]);
-                        plan_buffer_line(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS], 70, active_extruder); //should do nothing
-                        plan_buffer_line(lastpos[X_AXIS], lastpos[Y_AXIS], target[Z_AXIS], target[E_AXIS], 70, active_extruder); //move xy back
-                        plan_buffer_line(lastpos[X_AXIS], lastpos[Y_AXIS], lastpos[Z_AXIS], target[E_AXIS], 200, active_extruder); //move z back
-                        
-                        
-                        target[E_AXIS]= target[E_AXIS] - FILAMENTCHANGE_FIRSTRETRACT;
-                        
-                      
-                             
-                        plan_buffer_line(lastpos[X_AXIS], lastpos[Y_AXIS], lastpos[Z_AXIS], target[E_AXIS], 5, active_extruder); //final untretract
-                        
-                        
-                        plan_set_e_position(lastpos[E_AXIS]);
-                        
-                        feedmultiply=feedmultiplyBckp;
-                        
-                     
-                        
-                        char cmd[9];
-
-                        sprintf_P(cmd, PSTR("M220 S%i"), feedmultiplyBckp);
-                        enquecommand(cmd);
-
-            }
-
-
-
-        #endif
-
             get_coordinates(); // For X Y Z E F
 
             // When recovering from a previous print move, restore the originally
