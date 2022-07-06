@@ -1220,7 +1220,7 @@ void tp_init()
 
 #if defined(AMBIENT_MINTEMP) && defined(AMBIENT_THERMISTOR)
   while(analog2tempAmbient(ambient_minttemp_raw) < AMBIENT_MINTEMP) {
-#if HEATER_AMBIENT_RAW_LO_TEMP < HEATER_AMBIENT_RAW_HI_TEMP
+#if AMBIENT_RAW_LO_TEMP < AMBIENT_RAW_HI_TEMP
     ambient_minttemp_raw += OVERSAMPLENR;
 #else
     ambient_minttemp_raw -= OVERSAMPLENR;
@@ -1229,7 +1229,7 @@ void tp_init()
 #endif //AMBIENT_MINTEMP
 #if defined(AMBIENT_MAXTEMP) && defined(AMBIENT_THERMISTOR)
   while(analog2tempAmbient(ambient_maxttemp_raw) > AMBIENT_MAXTEMP) {
-#if HEATER_AMBIENT_RAW_LO_TEMP < HEATER_AMBIENT_RAW_HI_TEMP
+#if AMBIENT_RAW_LO_TEMP < AMBIENT_RAW_HI_TEMP
     ambient_maxttemp_raw -= OVERSAMPLENR;
 #else
     ambient_maxttemp_raw += OVERSAMPLENR;
@@ -1682,6 +1682,16 @@ void adc_ready(void) //callback from adc when sampling finished
 
 FORCE_INLINE static void temperature_isr()
 {
+#ifdef DEBUG_PULLUP_CRASH
+    // check for faulty pull-ups enabled on thermistor inputs
+    if ((PORTF & (uint8_t)(ADC_DIDR_MSK & 0xff)) || (PORTK & (uint8_t)((ADC_DIDR_MSK >> 8) & 0xff)))
+        pullup_error(true);
+#else
+    PORTF &= ~(uint8_t)(ADC_DIDR_MSK & 0xff);
+    PORTK &= ~(uint8_t)((ADC_DIDR_MSK >> 8) & 0xff);
+#endif // DEBUG_PULLUP_CRASH
+
+
 	if (!temp_meas_ready) adc_cycle();
 	lcd_buttons_update();
 

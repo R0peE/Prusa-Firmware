@@ -75,6 +75,7 @@
 // Canceled home position
 #define X_CANCEL_POS 50
 #define Y_CANCEL_POS 190
+#define Z_CANCEL_LIFT 50
 
 //Pause print position
 #define X_PAUSE_POS 50
@@ -169,6 +170,8 @@
 #define DEBUG_DCODE2
 #define DEBUG_DCODE3
 #define DEBUG_DCODE6
+
+//#define DEBUG_PULLUP_CRASH //Test Pullup crash
 
 //#define DEBUG_BUILD
 //#define DEBUG_SEC_LANG   //secondary language debug output at startup
@@ -359,6 +362,8 @@
 #define EXTRUDER_ALTFAN_DETECT
 #define EXTRUDER_ALTFAN_SPEED_SILENT 128
 
+#define FANCHECK_AUTO_PRINT_FAN_THRS 70 //[RPS] - Used during selftest to identify swapped fans automatically
+#define FANCHECK_AUTO_FAIL_THRS 20 //[RPS] - Used during selftest to identify a faulty fan
 
 
 /*------------------------------------

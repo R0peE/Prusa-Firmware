@@ -121,8 +121,8 @@ enum class CustomMsg : uint_least8_t
     TempCal,         //!< PINDA temperature calibration
     TempCompPreheat, //!< Temperature compensation preheat
     M0Wait,          //!< M0/M1 Wait command working even from SD
-    MsgUpdate,       //!< Short message even while printing from SD
-    Resuming,       //!< Resuming message
+    M117,            //!< M117 Set the status line message on the LCD
+    Resuming,        //!< Resuming message
 };
 
 extern CustomMsg custom_message_type;
@@ -204,7 +204,6 @@ bool lcd_wait_for_pinda(float temp);
 char reset_menu();
 uint8_t choose_menu_P(const char *header, const char *item, const char *last_item = nullptr);
 
-void lcd_pinda_calibration_menu();
 void lcd_calibrate_pinda();
 void lcd_temp_calibration_set();
 
