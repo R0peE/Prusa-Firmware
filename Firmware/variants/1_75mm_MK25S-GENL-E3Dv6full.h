@@ -12,7 +12,7 @@
 #define PRINTER_NAME PRINTER_MK25S_NAME
 #define PRINTER_MMU_TYPE PRINTER_MK25S_MMU2
 #define PRINTER_MMU_NAME PRINTER_MK25S_MMU2_NAME
-#define FILAMENT_SIZE "1_75mm_MK25"
+#define FILAMENT_SIZE "1_75mm_MK25S"
 #define NOZZLE_TYPE "E3Dv6full"
 
 // Developer flag
@@ -72,6 +72,7 @@
 // Canceled home position
 #define X_CANCEL_POS 50
 #define Y_CANCEL_POS 190
+#define Z_CANCEL_LIFT 50		
 
 //Pause print position
 #define X_PAUSE_POS 50
