@@ -22,38 +22,47 @@
 //#define SWI2C_SDA      20 //SDA on P3
 //#define SWI2C_SCL      21 //SCL on P3
 
-
-//#define X_TMC2130_CS        63 // A9
-//#define X_TMC2130_DIAG       3
 #define X_STEP_PIN          54 // A0
 #define X_DIR_PIN           55 // A1
-#define X_MIN_PIN           3
-#define X_MAX_PIN           -1 //default 2
-//#define X_MIN_PIN           X_TMC2130_DIAG
-//#define X_MAX_PIN           X_TMC2130_DIAG
+#ifdef TMC2130
+  #define X_MIN_PIN           X_TMC2130_DIAG
+  #define X_MAX_PIN           X_TMC2130_DIAG
+  #define X_TMC2130_CS        63 // A9
+  #define X_TMC2130_DIAG       3
+#else
+  #define X_MIN_PIN           3
+  #define X_MAX_PIN           -1 //default 2
+#endif
 #define X_ENABLE_PIN        38
 #define X_MS1_PIN           -1
 #define X_MS2_PIN           -1
 
-//#define Y_TMC2130_CS        64 // A10
-//#define Y_TMC2130_DIAG      14
 #define Y_STEP_PIN          60 // A6
 #define Y_DIR_PIN           61 // A7
-#define Y_MIN_PIN           14
-#define Y_MAX_PIN           -1 //default 15
-//#define Y_MIN_PIN           Y_TMC2130_DIAG
-//#define Y_MAX_PIN           Y_TMC2130_DIAG
+#ifdef TMC2130
+  #define Y_MIN_PIN           Y_TMC2130_DIAG
+  #define Y_MAX_PIN           Y_TMC2130_DIAG
+  #define Y_TMC2130_CS        64 // A10
+  #define Y_TMC2130_DIAG      14
+#else
+  #define Y_MIN_PIN           14
+  #define Y_MAX_PIN           -1 //default 15
+#endif
 #define Y_ENABLE_PIN        56 // A2
 #define Y_MS1_PIN           -1
 #define Y_MS2_PIN           -1
 
-//#define Z_TMC2130_CS        65 // A11
-//#define Z_TMC2130_DIAG      18
 #define Z_STEP_PIN          46
 #define Z_DIR_PIN           48
-#define Z_MIN_PIN           18 // Y+ in the board PINDA
-#define Z_MAX_PIN           -1 // default 19
-//#define Z_MAX_PIN           Z_TMC2130_DIAG
+#ifdef TMC2130
+  #define Z_TMC2130_CS        65 // A11
+  #define Z_TMC2130_DIAG      18
+  #define Z_MAX_PIN           Z_TMC2130_DIAG
+  #define Z_MIN_PIN           15 // Y+ in the board PINDA
+#else
+  #define Z_MIN_PIN           18 // Y+ in the board PINDA
+  #define Z_MAX_PIN           -1 // default 19
+#endif
 #define Z_ENABLE_PIN        62 // A8
 #define Z_MS1_PIN           -1
 #define Z_MS2_PIN           -1
@@ -77,12 +86,13 @@
 //#define VOLT_PWR_PIN         4 //A4
 //#define VOLT_BED_PIN         9 //A9
 
-
-//#define E0_TMC2130_CS       66 // A12
-//#define E0_TMC2130_DIAG     2
 #define E0_STEP_PIN         26
 #define E0_DIR_PIN          28
 #define E0_ENABLE_PIN       24
+#ifdef TMC2130
+  #define E0_TMC2130_CS       66 // A12
+  #define E0_TMC2130_DIAG     2
+#endif
 #define E0_MS1_PIN           -1
 #define E0_MS2_PIN           -1
 
