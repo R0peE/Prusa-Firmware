@@ -12,7 +12,7 @@
 #define PRINTER_NAME PRINTER_MK25S_NAME
 #define PRINTER_MMU_TYPE PRINTER_MK25S_MMU2
 #define PRINTER_MMU_NAME PRINTER_MK25S_MMU2_NAME
-#define FILAMENT_SIZE "1_75mm_MK25"
+#define FILAMENT_SIZE "1_75mm_MK25S"
 #define NOZZLE_TYPE "E3Dv6full"
 
 // Developer flag
@@ -71,6 +71,7 @@
 // Canceled home position
 #define X_CANCEL_POS 50
 #define Y_CANCEL_POS 190
+#define Z_CANCEL_LIFT 50
 
 //Pause print position
 #define X_PAUSE_POS 50
@@ -220,6 +221,9 @@
 #define EXTRUDER_AUTO_FAN_TEMPERATURE 50
 #define EXTRUDER_AUTO_FAN_SPEED   255  // == full speed
 
+#define FANCHECK_AUTO_PRINT_FAN_THRS 70 //[RPS] - Used during selftest to identify swapped fans automatically
+#define FANCHECK_AUTO_FAIL_THRS 20 //[RPS] - Used during selftest to identify a faulty fan
+
 
 /*------------------------------------
  LOAD/UNLOAD FILAMENT SETTINGS
@@ -264,13 +268,6 @@
 /*------------------------------------
  ADDITIONAL FEATURES SETTINGS
  *------------------------------------*/
-
-// Define Prusa filament runout sensor
-//#define FILAMENT_RUNOUT_SUPPORT
-
-#ifdef FILAMENT_RUNOUT_SUPPORT
-#define FILAMENT_RUNOUT_SENSOR 1
-#endif
 
 // temperature runaway
 #define TEMP_RUNAWAY_BED_HYSTERESIS 5
