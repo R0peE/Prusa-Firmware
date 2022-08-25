@@ -44,7 +44,7 @@ void print_hex_word(daddr_t val)
     print_hex_byte(val & 0xFF);
 }
 
-int parse_hex(char* hex, uint8_t* data, int count)
+int parse_hex(const char* hex, uint8_t* data, int count)
 {
 	int parsed = 0;
 	while (*hex)
@@ -573,6 +573,7 @@ void dcode_9()
 		for (uint8_t i = 0; i < ADC_CHAN_CNT; i++)
 			printf_P(PSTR("\tADC%d=%4d\t(%S)\n"), i, dcode_9_ADC_val(i) >> 4, dcode_9_ADC_name(i));
 	}
+#if 0
 	else
 	{
 		uint8_t index = 0xff;
@@ -588,6 +589,7 @@ void dcode_9()
 			}
 		}
 	}
+#endif
 }
 
     /*!

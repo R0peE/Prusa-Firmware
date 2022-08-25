@@ -72,6 +72,7 @@
 #include "planner.h"
 #include "stepper.h"
 #include "temperature.h"
+#include "fancheck.h"
 #include "motion_control.h"
 #include "cardreader.h"
 #include "ConfigurationStore.h"
@@ -303,10 +304,11 @@ uint8_t saved_filament_type;
 // Define some coordinates outside the clamp limits (making them invalid past the parsing stage) so
 // that they can be used later for various logical checks
 #define X_COORD_INVALID (X_MIN_POS-1)
-#define Y_COORD_INVALID (Y_MIN_POS-1)
 
-#define SAVED_TARGET_UNSET X_COORD_INVALID
-float saved_target[NUM_AXIS] = {SAVED_TARGET_UNSET, 0, 0, 0};
+#define SAVED_START_POSITION_UNSET X_COORD_INVALID
+float saved_start_position[NUM_AXIS] = {SAVED_START_POSITION_UNSET, 0, 0, 0};
+
+uint16_t saved_segment_idx = 0;
 
 // save/restore printing in case that mmu was not responding 
 bool mmu_print_saved = false;
@@ -379,9 +381,10 @@ static float saved_pos[4] = { X_COORD_INVALID, 0, 0, 0 };
 static uint16_t saved_feedrate2 = 0; //!< Default feedrate (truncated from float)
 static int saved_feedmultiply2 = 0;
 static uint8_t saved_active_extruder = 0;
-static float saved_extruder_temperature = 0.0; //!< Active extruder temperature
+float saved_extruder_temperature = 0.0; //!< Active extruder temperature
+float saved_bed_temperature = 0.0; //!< Bed temperature
 static bool saved_extruder_relative_mode = false;
-static int saved_fanSpeed = 0; //!< Print fan speed
+int saved_fan_speed = 0; //!< Print fan speed
 //! @}
 
 static int saved_feedmultiply_mm = 100;
@@ -443,7 +446,6 @@ AutoReportFeatures autoReportFeatures;
 //=============================Routines======================================
 //===========================================================================
 
-static void get_arc_coordinates();
 static bool setTargetedHotend(int code, uint8_t &extruder);
 static void print_time_remaining_init();
 static void wait_for_heater(long codenum, uint8_t extruder);
@@ -571,6 +573,10 @@ void servo_init()
   #endif
 }
 
+bool printer_active()
+{
+    return PRINTER_ACTIVE;
+}
 
 bool fans_check_enabled = true;
 
@@ -1273,9 +1279,15 @@ void setup()
 	else { //printer version was changed so use default settings 
 		Config_ResetDefault();
 	}
-	SdFatUtil::set_stack_guard(); //writes magic number at the end of static variables to protect against overwriting static memory by stack
 
-	tp_init();    // Initialize temperature loop
+    // writes a magic number at the end of static variables to monitor against incorrect overwriting
+    // of static memory by stack (this needs to be done before soft_pwm_init, since the check is
+    // performed inside the soft_pwm_isr)
+    SdFatUtil::set_stack_guard();
+
+    // Initialize pwm/temperature loops
+    soft_pwm_init();
+    temp_mgr_init();
 
 #ifdef EXTRUDER_ALTFAN_DETECT
 	SERIAL_ECHORPGM(_n("Extruder fan type: "));
@@ -1360,7 +1372,9 @@ void setup()
     
 	setup_photpin();
 
+#if 0
 	servo_init();
+#endif
 
 	// Reset the machine correction matrix.
 	// It does not make sense to load the correction matrix until the machine is homed.
@@ -1693,10 +1707,6 @@ void stack_error() {
     crash_and_burn(dump_crash_reason::stack_error);
 }
 
-void pullup_error(bool fromTempISR) {
-    crash_and_burn(fromTempISR ? dump_crash_reason::bad_pullup_temp_isr : dump_crash_reason::bad_pullup_step_isr);
-}
-
 #ifdef PRUSA_M28
 void trace();
 
@@ -1775,7 +1785,7 @@ void serial_read_stream() {
  * Output autoreport values according to features requested in M155
  */
 #if defined(AUTO_REPORT)
-static void host_autoreport()
+void host_autoreport()
 {
     if (autoReportFeatures.TimerExpired())
     {
@@ -1835,7 +1845,17 @@ void host_keepalive() {
 // Before loop(), the setup() function is called by the main() routine.
 void loop()
 {
-	KEEPALIVE_STATE(NOT_BUSY);
+    // Reset a previously aborted command, we can now start processing motion again
+    planner_aborted = false;
+
+    if(Stopped) {
+        // Currently Stopped (possibly due to an error) and not accepting new serial commands.
+        // Signal to the host that we're currently busy waiting for supervision.
+        KEEPALIVE_STATE(PAUSED_FOR_USER);
+    } else {
+        // Printer is available for processing, reset state
+        KEEPALIVE_STATE(NOT_BUSY);
+    }
 
 	if (isPrintPaused && saved_printing_type == PRINTING_TYPE_USB) { //keep believing that usb is being printed. Prevents accessing dangerous menus while pausing.
 		usb_timer.start();
@@ -1844,13 +1864,6 @@ void loop()
 		;
 	}
     
-#ifdef FANCHECK
-    if (fan_check_error && isPrintPaused && !IS_SD_PRINTING) {
-        KEEPALIVE_STATE(PAUSED_FOR_USER);
-        host_keepalive(); //prevent timeouts since usb processing is disabled until print is resumed. This is for a crude way of pausing a print on all hosts.
-    }
-#endif
-
 #ifdef PRUSA_M28
     if (prusa_sd_card_upload)
     {
@@ -1941,7 +1954,7 @@ void loop()
 }
   //check heater every n milliseconds
   manage_heater();
-  isPrintPaused ? manage_inactivity(true) : manage_inactivity(false);
+  manage_inactivity(isPrintPaused);
   checkHitEndstops();
   lcd_update(0);
 #ifdef TMC2130
@@ -2207,6 +2220,7 @@ void raise_z_above(float target, bool plan)
 
     // Z needs raising
     current_position[Z_AXIS] = target;
+    clamp_to_software_endstops(current_position);
 
 #if defined(Z_MIN_PIN) && (Z_MIN_PIN > -1) && !defined(DEBUG_DISABLE_ZMINLIMIT)
     bool z_min_endstop = (READ(Z_MIN_PIN) != Z_MIN_ENDSTOP_INVERTING);
@@ -2983,7 +2997,7 @@ static void gcode_G28(bool home_x_axis, bool home_y_axis, bool home_z_axis)
 static void gcode_G80()
 {
     st_synchronize();
-    if (waiting_inside_plan_buffer_line_print_aborted)
+    if (planner_aborted)
         return;
 
     mesh_bed_leveling_flag = true;
@@ -3077,7 +3091,7 @@ static void gcode_G80()
     plan_buffer_line_curposXYZE(XY_AXIS_FEEDRATE);
     // Wait until the move is finished.
     st_synchronize();
-    if (waiting_inside_plan_buffer_line_print_aborted)
+    if (planner_aborted)
     {
         custom_message_type = custom_message_type_old;
         custom_message_state = custom_message_state_old;
@@ -3152,7 +3166,7 @@ static void gcode_G80()
         //printf_P(PSTR("after clamping: [%f;%f]\n"), current_position[X_AXIS], current_position[Y_AXIS]);
         plan_buffer_line_curposXYZE(XY_AXIS_FEEDRATE);
         st_synchronize();
-        if (waiting_inside_plan_buffer_line_print_aborted)
+        if (planner_aborted)
         {
             custom_message_type = custom_message_type_old;
             custom_message_state = custom_message_state_old;
@@ -3813,14 +3827,17 @@ void gcode_M701()
 		fsensor_oq_meassure_start(40);
 #endif //FSENSOR_QUALITY
 
+        const int feed_mm_before_raising = 30;
+        static_assert(feed_mm_before_raising <= FILAMENTCHANGE_FIRSTFEED);
+
 		lcd_setstatuspgm(_T(MSG_LOADING_FILAMENT));
-		current_position[E_AXIS] += 40;
-		plan_buffer_line_curposXYZE(400 / 60); //fast sequence
+		current_position[E_AXIS] += FILAMENTCHANGE_FIRSTFEED - feed_mm_before_raising;
+		plan_buffer_line_curposXYZE(FILAMENTCHANGE_EFEED_FIRST); //fast sequence
 		st_synchronize();
 
         raise_z_above(MIN_Z_FOR_LOAD, false);
-		current_position[E_AXIS] += 30;
-		plan_buffer_line_curposXYZE(400 / 60); //fast sequence
+		current_position[E_AXIS] += feed_mm_before_raising;
+		plan_buffer_line_curposXYZE(FILAMENTCHANGE_EFEED_FIRST); //fast sequence
 		
 		load_filament_final_feed(); //slow sequence
 		st_synchronize();
@@ -4136,6 +4153,7 @@ extern uint8_t st_backlash_y;
 //!@n M302 - Allow cold extrudes, or set the minimum extrude S<temperature>.
 //!@n M303 - PID relay autotune S<temperature> sets the target temperature. (default target temperature = 150C)
 //!@n M304 - Set bed PID parameters P I and D
+//!@n M310 - Temperature model settings
 //!@n M400 - Finish all moves
 //!@n M401 - Lower z-probe if present
 //!@n M402 - Raise z-probe if present
@@ -4177,16 +4195,6 @@ There are reasons why some G Codes aren't in numerical order.
 
 void process_commands()
 {
-#ifdef FANCHECK
-    if(fan_check_error == EFCE_DETECTED) {
-        fan_check_error = EFCE_REPORTED;
-        if (usb_timer.running())
-            lcd_pause_usb_print();
-        else
-            lcd_pause_print();
-    }
-#endif
-
 	if (!buflen) return; //empty command
 
 #ifdef CMDBUFFER_DEBUG
@@ -4249,7 +4257,7 @@ void process_commands()
     */
 
     else if (code_seen_P(PSTR("M0")) || code_seen_P(PSTR("M1 "))) {// M0 and M1 - (Un)conditional stop - Wait for user button press on LCD
-        char *src = strchr_pointer + 2;
+        const char *src = strchr_pointer + 2;
         codenum = 0;
         bool hasP = false, hasS = false;
         if (code_seen('P')) {
@@ -4640,19 +4648,9 @@ eeprom_update_word((uint16_t*)EEPROM_NOZZLE_DIAMETER_uM,0xFFFF);
     */
     case 0: // G0 -> G1
     case 1: // G1
-      if(Stopped == false) {
-            get_coordinates(); // For X Y Z E F
-
-            // When recovering from a previous print move, restore the originally
-            // calculated target position on the first USB/SD command. This accounts
-            // properly for relative moves
-            if ((saved_target[0] != SAVED_TARGET_UNSET) &&
-                ((CMDBUFFER_CURRENT_TYPE == CMDBUFFER_CURRENT_TYPE_SDCARD) ||
-                 (CMDBUFFER_CURRENT_TYPE == CMDBUFFER_CURRENT_TYPE_USB_WITH_LINENR)))
-            {
-                memcpy(destination, saved_target, sizeof(destination));
-                saved_target[0] = SAVED_TARGET_UNSET;
-            }
+        {
+        uint16_t start_segment_idx = restore_interrupted_gcode();
+        get_coordinates(); // For X Y Z E F
 
 		if (total_filament_used > ((current_position[E_AXIS] - destination[E_AXIS]) * 100)) { //protection against total_filament_used overflow
 			total_filament_used = total_filament_used + ((destination[E_AXIS] - current_position[E_AXIS]) * 100);
@@ -4673,7 +4671,7 @@ eeprom_update_word((uint16_t*)EEPROM_NOZZLE_DIAMETER_uM,0xFFFF);
         }
 #endif //FWRETRACT
 
-        prepare_move();
+        prepare_move(start_segment_idx);
         //ClearToSend();
       }
       break;
@@ -4698,21 +4696,24 @@ eeprom_update_word((uint16_t*)EEPROM_NOZZLE_DIAMETER_uM,0xFFFF);
 	  - `F` - The feedrate per minute of the move between the starting point and ending point (if supplied)
 	
     */
-    case 2: 
-      if(Stopped == false) {
-        get_arc_coordinates();
-        prepare_arc_move(true);
-      }
-      break;
- 
-    // -------------------------------
-    case 3: 
-      if(Stopped == false) {
-        get_arc_coordinates();
-        prepare_arc_move(false);
-      }
-      break;
+    case 2:
+    case 3:
+    {
+        uint16_t start_segment_idx = restore_interrupted_gcode();
+#ifdef SF_ARC_FIX
+        bool relative_mode_backup = relative_mode;
+        relative_mode = true;
+#endif
+        get_coordinates(); // For X Y Z E F
+#ifdef SF_ARC_FIX
+        relative_mode=relative_mode_backup;
+#endif
 
+        offset[0] = code_seen('I') ? code_value() : 0.f;
+        offset[1] = code_seen('J') ? code_value() : 0.f;
+        
+        prepare_arc_move((gcode_in_progress == 2), start_segment_idx);
+    } break;
 
     /*!
 	### G4 - Dwell <a href="https://reprap.org/wiki/G-code#G4:_Dwell">G4: Dwell</a>
@@ -4807,11 +4808,11 @@ eeprom_update_word((uint16_t*)EEPROM_NOZZLE_DIAMETER_uM,0xFFFF);
       long home_z_value = 0;
       // Which axes should be homed?
       bool home_x = code_seen(axis_codes[X_AXIS]);
-      home_x_value = code_value_long();
+      if (home_x) home_x_value = code_value_long();
       bool home_y = code_seen(axis_codes[Y_AXIS]);
-      home_y_value = code_value_long();
+      if (home_y) home_y_value = code_value_long();
       bool home_z = code_seen(axis_codes[Z_AXIS]);
-      home_z_value = code_value_long();
+      if (home_z) home_z_value = code_value_long();
       bool without_mbl = code_seen('W');
       // calibrate?
 #ifdef TMC2130
@@ -5676,6 +5677,7 @@ eeprom_update_word((uint16_t*)EEPROM_NOZZLE_DIAMETER_uM,0xFFFF);
           {
               // A new print has started from scratch, reset stats
               failstats_reset_print();
+              sdpos_atomic = 0;
 #ifndef LA_NOCOMPAT
               la10c_reset();
 #endif
@@ -5774,7 +5776,7 @@ eeprom_update_word((uint16_t*)EEPROM_NOZZLE_DIAMETER_uM,0xFFFF);
       }
       starpos = (strchr(strchr_pointer + 4,'*'));
 
-      char* namestartpos = (strchr(strchr_pointer + 4,'!'));   //find ! to indicate filename string start.
+      const char* namestartpos = (strchr(strchr_pointer + 4,'!'));   //find ! to indicate filename string start.
       if(namestartpos==NULL)
       {
         namestartpos=strchr_pointer + 4; //default name position, 4 letters after the M
@@ -5803,6 +5805,7 @@ eeprom_update_word((uint16_t*)EEPROM_NOZZLE_DIAMETER_uM,0xFFFF);
             {
                 // A new print has started from scratch, reset stats
                 failstats_reset_print();
+                sdpos_atomic = 0;
 #ifndef LA_NOCOMPAT
                 la10c_reset();
 #endif
@@ -7756,6 +7759,67 @@ Sigma_Exit:
       PID_autotune(temp, e, c);
     }
     break;
+
+#ifdef TEMP_MODEL
+    /*!
+    ### M310 - Temperature model settings <a href="https://reprap.org/wiki/G-code#M310:_Temperature_model_settings">M310: Temperature model settings</a>
+    #### Usage
+
+        M310                                           ; report values
+        M310 [ A ]                                     ; autotune
+        M310 [ S ]                                     ; set 0=disable 1=enable
+        M310 [ I ] [ R ]                               ; set resistance at index
+        M310 [ P | C ]                                 ; set power, capacitance
+        M310 [ B | E | W ]                             ; set beeper, warning and error threshold
+        M310 [ T ]                                     ; set ambient temperature correction
+
+    #### Parameters
+    - `I` - resistance index position (0-15)
+    - `R` - resistance value at index (K/W; requires `I`)
+    - `P` - power (W)
+    - `C` - capacitance (J/K)
+    - `S` - set 0=disable 1=enable
+    - `B` - beep and warn when reaching warning threshold 0=disable 1=enable (default: 1)
+    - `E` - error threshold (K/s; default in variant)
+    - `W` - warning threshold (K/s; default in variant)
+    - `T` - ambient temperature correction (K; default in variant)
+    - `A` - autotune C+R values
+    */
+    case 310:
+    {
+        // parse all parameters
+        float P = NAN, C = NAN, R = NAN, E = NAN, W = NAN, T = NAN;
+        int8_t I = -1, S = -1, B = -1, A = -1;
+        if(code_seen('C')) C = code_value();
+        if(code_seen('P')) P = code_value();
+        if(code_seen('I')) I = code_value_short();
+        if(code_seen('R')) R = code_value();
+        if(code_seen('S')) S = code_value_short();
+        if(code_seen('B')) B = code_value_short();
+        if(code_seen('E')) E = code_value();
+        if(code_seen('W')) W = code_value();
+        if(code_seen('T')) T = code_value();
+        if(code_seen('A')) A = code_value_short();
+
+        // report values if nothing has been requested
+        if(isnan(C) && isnan(P) && isnan(R) && isnan(E) && isnan(W) && isnan(T) && I < 0 && S < 0 && B < 0 && A < 0) {
+            temp_model_report_settings();
+            break;
+        }
+
+        // update all parameters
+        if(B >= 0) temp_model_set_warn_beep(B);
+        if(!isnan(C) || !isnan(P) || !isnan(T) || !isnan(W) || !isnan(E)) temp_model_set_params(C, P, T, W, E);
+        if(I >= 0 && !isnan(R)) temp_model_set_resistance(I, R);
+
+        // enable the model last, if requested
+        if(S >= 0) temp_model_set_enabled(S);
+
+        // run autotune
+        if(A >= 0) temp_model_autotune(A);
+    }
+    break;
+#endif
     
     /*!
 	### M400 - Wait for all moves to finish <a href="https://reprap.org/wiki/G-code#M400:_Wait_for_current_moves_to_finish">M400: Wait for current moves to finish</a>
@@ -8713,16 +8777,6 @@ Sigma_Exit:
 	}
 	break;
 
-    /*!
-    ### M999 - Restart after being stopped <a href="https://reprap.org/wiki/G-code#M999:_Restart_after_being_stopped_by_error">M999: Restart after being stopped by error</a>
-    @todo Usually doesn't work. Should be fixed or removed. Most of the time, if `Stopped` it set, the print fails and is unrecoverable.
-    */
-    case 999:
-      Stopped = false;
-      lcd_reset_alert_level();
-      gcode_LastN = Stopped_gcode_LastN;
-      FlushSerialRequestResend();
-    break;
 	/*!
 	#### End of M-Commands
     */
@@ -8866,7 +8920,7 @@ Sigma_Exit:
                       active_extruder = tmp_extruder;
                       plan_set_position_curposXYZE();
                       // Move to the old position if 'F' was in the parameters
-                      if (make_move && Stopped == false) {
+                      if (make_move) {
                           prepare_move();
                       }
                   }
@@ -9140,6 +9194,23 @@ Sigma_Exit:
     };
 #endif
 
+#ifdef TEMP_MODEL_DEBUG
+    /*!
+    ## D70 - Enable low-level temperature model logging for offline simulation
+    #### Usage
+
+        D70 [ I ]
+
+    #### Parameters
+    - `I` - Enable 0-1 (default 0)
+    */
+    case 70: {
+        if(code_seen('I'))
+            temp_model_log_enable(code_value_short());
+        break;
+    }
+#endif
+
 #ifdef HEATBED_ANALYSIS
 
     /*!
@@ -9349,8 +9420,7 @@ void update_currents() {
 }
 #endif //MOTHERBOARD == BOARD_RAMBO_MINI_1_0 || MOTHERBOARD == BOARD_RAMBO_MINI_1_3
 
-void get_coordinates()
-{
+void get_coordinates() {
   bool seen[4]={false,false,false,false};
   for(int8_t i=0; i < NUM_AXIS; i++) {
     if(code_seen(axis_codes[i]))
@@ -9387,31 +9457,6 @@ void get_coordinates()
   }
 }
 
-void get_arc_coordinates()
-{
-#ifdef SF_ARC_FIX
-   bool relative_mode_backup = relative_mode;
-   relative_mode = true;
-#endif
-   get_coordinates();
-#ifdef SF_ARC_FIX
-   relative_mode=relative_mode_backup;
-#endif
-
-   if(code_seen('I')) {
-     offset[0] = code_value();
-   }
-   else {
-     offset[0] = 0.0;
-   }
-   if(code_seen('J')) {
-     offset[1] = code_value();
-   }
-   else {
-     offset[1] = 0.0;
-   }
-}
-
 void clamp_to_software_endstops(float target[3])
 {
 #ifdef DEBUG_DISABLE_SWLIMITS
@@ -9433,59 +9478,70 @@ void clamp_to_software_endstops(float target[3])
     }
 }
 
+uint16_t restore_interrupted_gcode() {
+    // When recovering from a previous print move, restore the originally
+    // calculated start position on the first USB/SD command. This accounts
+    // properly for relative moves
+    if (
+        (saved_start_position[0] != SAVED_START_POSITION_UNSET) && (
+            (CMDBUFFER_CURRENT_TYPE == CMDBUFFER_CURRENT_TYPE_SDCARD) ||
+            (CMDBUFFER_CURRENT_TYPE == CMDBUFFER_CURRENT_TYPE_USB_WITH_LINENR)
+        )
+    ) {
+        memcpy(current_position, saved_start_position, sizeof(current_position));
+        saved_start_position[0] = SAVED_START_POSITION_UNSET;
+        return saved_segment_idx;
+    }
+    else
+        return 1; //begin with the first segment
+}
+
 #ifdef MESH_BED_LEVELING
-void mesh_plan_buffer_line(const float &x, const float &y, const float &z, const float &e, const float &feed_rate, const uint8_t extruder) {
+void mesh_plan_buffer_line(const float &x, const float &y, const float &z, const float &e, const float &feed_rate, const uint8_t extruder, uint16_t start_segment_idx = 0) {
         float dx = x - current_position[X_AXIS];
         float dy = y - current_position[Y_AXIS];
-        int n_segments = 0;
+        uint16_t n_segments = 0;
 
         if (mbl.active) {
             float len = fabs(dx) + fabs(dy);
             if (len > 0)
                 // Split to 3cm segments or shorter.
-                n_segments = int(ceil(len / 30.f));
+                n_segments = uint16_t(ceil(len / 30.f));
         }
 
-        if (n_segments > 1) {
-            // In a multi-segment move explicitly set the final target in the plan
-            // as the move will be recalculated in it's entirety
-            float gcode_target[NUM_AXIS];
-            gcode_target[X_AXIS] = x;
-            gcode_target[Y_AXIS] = y;
-            gcode_target[Z_AXIS] = z;
-            gcode_target[E_AXIS] = e;
+        if (n_segments > 1 && start_segment_idx) {
 
             float dz = z - current_position[Z_AXIS];
             float de = e - current_position[E_AXIS];
 
-            for (int i = 1; i < n_segments; ++ i) {
+            for (uint16_t i = start_segment_idx; i < n_segments; ++ i) {
                 float t = float(i) / float(n_segments);
                 plan_buffer_line(current_position[X_AXIS] + t * dx,
                                  current_position[Y_AXIS] + t * dy,
                                  current_position[Z_AXIS] + t * dz,
                                  current_position[E_AXIS] + t * de,
-                                 feed_rate, extruder, gcode_target);
-                if (waiting_inside_plan_buffer_line_print_aborted)
+                                 feed_rate, extruder, current_position, i);
+                if (planner_aborted)
                     return;
             }
         }
         // The rest of the path.
-        plan_buffer_line(x, y, z, e, feed_rate, extruder);
+        plan_buffer_line(x, y, z, e, feed_rate, extruder, current_position);
     }
 #endif  // MESH_BED_LEVELING
     
-void prepare_move()
+void prepare_move(uint16_t start_segment_idx)
 {
   clamp_to_software_endstops(destination);
   previous_millis_cmd.start();
 
   // Do not use feedmultiply for E or Z only moves
-  if( (current_position[X_AXIS] == destination [X_AXIS]) && (current_position[Y_AXIS] == destination [Y_AXIS])) {
+  if((current_position[X_AXIS] == destination[X_AXIS]) && (current_position[Y_AXIS] == destination[Y_AXIS])) {
       plan_buffer_line_destinationXYZE(feedrate/60);
   }
   else {
 #ifdef MESH_BED_LEVELING
-    mesh_plan_buffer_line(destination[X_AXIS], destination[Y_AXIS], destination[Z_AXIS], destination[E_AXIS], feedrate*feedmultiply*(1./(60.f*100.f)), active_extruder);
+    mesh_plan_buffer_line(destination[X_AXIS], destination[Y_AXIS], destination[Z_AXIS], destination[E_AXIS], feedrate*feedmultiply*(1./(60.f*100.f)), active_extruder, start_segment_idx);
 #else
      plan_buffer_line_destinationXYZE(feedrate*feedmultiply*(1./(60.f*100.f)));
 #endif
@@ -9494,10 +9550,10 @@ void prepare_move()
   set_current_to_destination();
 }
 
-void prepare_arc_move(bool isclockwise) {
+void prepare_arc_move(bool isclockwise, uint16_t start_segment_idx) {
     float r = hypot(offset[X_AXIS], offset[Y_AXIS]); // Compute arc radius for mc_arc
     // Trace the arc
-    mc_arc(current_position, destination, offset, feedrate * feedmultiply / 60 / 100.0, r, isclockwise, active_extruder);
+    mc_arc(current_position, destination, offset, feedrate * feedmultiply / 60 / 100.0, r, isclockwise, active_extruder, start_segment_idx);
     // As far as the parser is concerned, the position is now == target. In reality the
     // motion control system might still be processing the action and the real tool position
     // in any intermediate location.
@@ -9867,6 +9923,7 @@ void UnconditionalStop()
     // Disable all heaters and unroll the temperature wait loop stack
     disable_heater();
     cancel_heatup = true;
+    heating_status = HeatingStatus::NO_HEATING;
 
     // Clear any saved printing state
     cancel_saved_printing();
@@ -9886,39 +9943,58 @@ void UnconditionalStop()
     CRITICAL_SECTION_END;
 }
 
-// Stop: Emergency stop used by overtemp functions which allows recovery
+// Emergency stop used by overtemp functions which allows recovery
+// WARNING: This function is called *continuously* during a thermal failure.
 //
-//   In addition to stopping the print, this prevents subsequent G[0-3] commands to be
-//   processed via USB (using "Stopped") until the print is resumed via M999 or
-//   manually started from scratch with the LCD.
-//
-//   Note that the current instruction is completely discarded, so resuming from Stop()
-//   will introduce either over/under extrusion on the current segment, and will not
-//   survive a power panic. Switching Stop() to use the pause machinery instead (with
-//   the addition of disabling the headers) could allow true recovery in the future.
-void Stop()
+// This either pauses (for thermal model errors) or stops *without recovery* depending on
+// "allow_pause". If pause is allowed, this forces a printer-initiated instantanenous pause (just
+// like an LCD pause) that bypasses the host pausing functionality. In this state the printer is
+// kept in busy state and *must* be recovered from the LCD.
+void ThermalStop(bool allow_pause)
 {
-  // Keep disabling heaters
-  disable_heater();
+    if(Stopped == false) {
+        Stopped = true;
+        if(allow_pause && (IS_SD_PRINTING || usb_timer.running())) {
+            if (!isPrintPaused) {
+                // we cannot make a distinction for the host here, the pause must be instantaneous
+                // so we call the lcd_pause_print to save the print state internally. Thermal errors
+                // disable heaters and save the original temperatures to saved_*, which will get
+                // overwritten by stop_and_save_print_to_ram. For this corner-case, re-instate the
+                // original values after the pause handler is called.
+                float bed_temp = saved_bed_temperature;
+                float ext_temp = saved_extruder_temperature;
+                int fan_speed = saved_fan_speed;
+                lcd_pause_print();
+                saved_bed_temperature = bed_temp;
+                saved_extruder_temperature = ext_temp;
+                saved_fan_speed = fan_speed;
+            }
+        } else {
+            // We got a hard thermal error and/or there is no print going on. Just stop.
+            lcd_print_stop();
 
-  // Call the regular stop function if that's the first time during a new print
-  if(Stopped == false) {
-    Stopped = true;
-    lcd_print_stop();
-    Stopped_gcode_LastN = gcode_LastN; // Save last g_code for restart
+            // Also prevent further menu entry
+            menu_set_block(MENU_BLOCK_THERMAL_ERROR);
+        }
 
-    // Eventually report the stopped status (though this is usually overridden by a
-    // higher-priority alert status message)
-    SERIAL_ERROR_START;
-    SERIAL_ERRORLNRPGM(MSG_ERR_STOPPED);
-    LCD_MESSAGERPGM(_T(MSG_STOPPED));
-  }
+        // Report the status on the serial, switch to a busy state
+        SERIAL_ERROR_START;
+        SERIAL_ERRORLNRPGM(MSG_ERR_STOPPED);
 
-  // Return to the status screen to stop any pending menu action which could have been
-  // started by the user while stuck in the Stopped state. This also ensures the NEW
-  // error is immediately shown.
-  if (menu_menu != lcd_status_screen)
-      lcd_return_to_status();
+        // Eventually report the stopped status on the lcd (though this is usually overridden by a
+        // higher-priority alert status message)
+        LCD_MESSAGERPGM(_T(MSG_STOPPED));
+
+        // Make a warning sound! We cannot use Sound_MakeCustom as this would stop further moves.
+        // Turn on the speaker here (if not already), and turn it off when back in the main loop.
+        WRITE(BEEPER, HIGH);
+    }
+
+    // Return to the status screen to stop any pending menu action which could have been
+    // started by the user while stuck in the Stopped state. This also ensures the NEW
+    // error is immediately shown.
+    if (menu_menu != lcd_status_screen)
+        lcd_return_to_status();
 }
 
 bool IsStopped() { return Stopped; };
@@ -10750,20 +10826,27 @@ void long_pause() //long pause print
 	start_pause_print = _millis();
 
     // Stop heaters
+    heating_status = HeatingStatus::NO_HEATING;
     setAllTargetHotends(0);
 
-	//lift z
-	current_position[Z_AXIS] += Z_PAUSE_LIFT;
-	clamp_to_software_endstops(current_position);
-	plan_buffer_line_curposXYZE(15);
+    // Lift z
+    raise_z_above(current_position[Z_AXIS] + Z_PAUSE_LIFT, true);
 
-	//Move XY to side
-	current_position[X_AXIS] = X_PAUSE_POS;
-	current_position[Y_AXIS] = Y_PAUSE_POS;
-	plan_buffer_line_curposXYZE(50);
+    // Move XY to side
+    if (axis_known_position[X_AXIS] && axis_known_position[Y_AXIS]) {
+        current_position[X_AXIS] = X_PAUSE_POS;
+        current_position[Y_AXIS] = Y_PAUSE_POS;
+        plan_buffer_line_curposXYZE(50);
+    }
 
-	// Turn off the print fan
-	fanSpeed = 0;
+    // did we come here from a thermal error?
+    if(get_temp_error()) {
+        // time to stop the error beep
+        WRITE(BEEPER, LOW);
+    } else {
+        // Turn off the print fan
+        fanSpeed = 0;
+    }
 }
 
 void serialecho_temperatures() {
@@ -10830,13 +10913,15 @@ void uvlo_()
     uint16_t feedrate_bckp;
     if (current_block && !pos_invalid)
     {
-        memcpy(saved_target, current_block->gcode_target, sizeof(saved_target));
+        memcpy(saved_start_position, current_block->gcode_start_position, sizeof(saved_start_position));
         feedrate_bckp = current_block->gcode_feedrate;
+        saved_segment_idx = current_block->segment_idx;
     }
     else
     {
-        saved_target[0] = SAVED_TARGET_UNSET;
+        saved_start_position[0] = SAVED_START_POSITION_UNSET;
         feedrate_bckp = feedrate;
+        saved_segment_idx = 0;
     }
 
     // From this point on and up to the print recovery, Z should not move during X/Y travels and
@@ -10867,6 +10952,7 @@ void uvlo_()
 
     // Enable stepper driver interrupt to move Z axis. This should be fine as the planner and
     // command queues are empty, SD card printing is disabled, usb is inhibited.
+    planner_aborted = false;
     sei();
 
     // Retract
@@ -10934,10 +11020,12 @@ void uvlo_()
 	eeprom_update_float((float*)(EEPROM_UVLO_TRAVEL_ACCELL), cs.travel_acceleration);
 
     // Store the saved target
-    eeprom_update_float((float*)(EEPROM_UVLO_SAVED_TARGET+0*4), saved_target[X_AXIS]);
-    eeprom_update_float((float*)(EEPROM_UVLO_SAVED_TARGET+1*4), saved_target[Y_AXIS]);
-    eeprom_update_float((float*)(EEPROM_UVLO_SAVED_TARGET+2*4), saved_target[Z_AXIS]);
-    eeprom_update_float((float*)(EEPROM_UVLO_SAVED_TARGET+3*4), saved_target[E_AXIS]);
+    eeprom_update_float((float*)(EEPROM_UVLO_SAVED_START_POSITION+0*4), saved_start_position[X_AXIS]);
+    eeprom_update_float((float*)(EEPROM_UVLO_SAVED_START_POSITION+1*4), saved_start_position[Y_AXIS]);
+    eeprom_update_float((float*)(EEPROM_UVLO_SAVED_START_POSITION+2*4), saved_start_position[Z_AXIS]);
+    eeprom_update_float((float*)(EEPROM_UVLO_SAVED_START_POSITION+3*4), saved_start_position[E_AXIS]);
+    
+    eeprom_update_word((uint16_t*)EEPROM_UVLO_SAVED_SEGMENT_IDX, saved_segment_idx);
 
 #ifdef LIN_ADVANCE
 	eeprom_update_float((float*)(EEPROM_UVLO_LA_K), extruder_advance_K);
@@ -10999,6 +11087,7 @@ void uvlo_tiny()
 
         // Enable stepper driver interrupt to move Z axis. This should be fine as the planner and
         // command queues are empty, SD card printing is disabled, usb is inhibited.
+        planner_aborted = false;
         sei();
 
         // The axis was moved: adjust Z as done on a regular UVLO.
@@ -11120,7 +11209,7 @@ void recover_print(uint8_t automatic) {
   // Set the target bed and nozzle temperatures and wait.
 	sprintf_P(cmd, PSTR("M104 S%d"), target_temperature[active_extruder]);
 	enquecommand(cmd);
-	sprintf_P(cmd, PSTR("M190 S%d"), target_temperature_bed);
+	sprintf_P(cmd, PSTR("M140 S%d"), target_temperature_bed);
 	enquecommand(cmd);
 	sprintf_P(cmd, PSTR("M109 S%d"), target_temperature[active_extruder]);
 	enquecommand(cmd);
@@ -11206,10 +11295,12 @@ bool recover_machine_state_after_power_panic()
   extrudemultiply = (int)eeprom_read_word((uint16_t*)(EEPROM_EXTRUDEMULTIPLY));
 
   // 9) Recover the saved target
-  saved_target[X_AXIS] = eeprom_read_float((float*)(EEPROM_UVLO_SAVED_TARGET+0*4));
-  saved_target[Y_AXIS] = eeprom_read_float((float*)(EEPROM_UVLO_SAVED_TARGET+1*4));
-  saved_target[Z_AXIS] = eeprom_read_float((float*)(EEPROM_UVLO_SAVED_TARGET+2*4));
-  saved_target[E_AXIS] = eeprom_read_float((float*)(EEPROM_UVLO_SAVED_TARGET+3*4));
+  saved_start_position[X_AXIS] = eeprom_read_float((float*)(EEPROM_UVLO_SAVED_START_POSITION+0*4));
+  saved_start_position[Y_AXIS] = eeprom_read_float((float*)(EEPROM_UVLO_SAVED_START_POSITION+1*4));
+  saved_start_position[Z_AXIS] = eeprom_read_float((float*)(EEPROM_UVLO_SAVED_START_POSITION+2*4));
+  saved_start_position[E_AXIS] = eeprom_read_float((float*)(EEPROM_UVLO_SAVED_START_POSITION+3*4));
+  
+  saved_segment_idx = eeprom_read_word((uint16_t*)EEPROM_UVLO_SAVED_SEGMENT_IDX);
 
 #ifdef LIN_ADVANCE
   extruder_advance_K = eeprom_read_float((float*)EEPROM_UVLO_LA_K);
@@ -11451,13 +11542,16 @@ void stop_and_save_print_to_ram(float z_move, float e_move)
   bool pos_invalid = XY_NO_RESTORE_FLAG;
   if (current_block && !pos_invalid)
   {
-      memcpy(saved_target, current_block->gcode_target, sizeof(saved_target));
+      memcpy(saved_start_position, current_block->gcode_start_position, sizeof(saved_start_position));
       saved_feedrate2 = current_block->gcode_feedrate;
+      saved_segment_idx = current_block->segment_idx;
+      // printf_P(PSTR("stop_and_save_print_to_ram: %f, %f, %f, %f, %u\n"), saved_start_position[0], saved_start_position[1], saved_start_position[2], saved_start_position[3], saved_segment_idx);
   }
   else
   {
-      saved_target[0] = SAVED_TARGET_UNSET;
+      saved_start_position[0] = SAVED_START_POSITION_UNSET;
       saved_feedrate2 = feedrate;
+      saved_segment_idx = 0;
   }
 
 	planner_abort_hard(); //abort printing
@@ -11468,8 +11562,9 @@ void stop_and_save_print_to_ram(float z_move, float e_move)
     saved_feedmultiply2 = feedmultiply; //save feedmultiply
 	saved_active_extruder = active_extruder; //save active_extruder
 	saved_extruder_temperature = degTargetHotend(active_extruder);
+	saved_bed_temperature = degBed();
 	saved_extruder_relative_mode = axis_relative_modes & E_AXIS_MASK;
-	saved_fanSpeed = fanSpeed;
+	saved_fan_speed = fanSpeed;
 	cmdqueue_reset(); //empty cmdqueue
 	card.sdprinting = false;
 //	card.closefile();
@@ -11478,7 +11573,7 @@ void stop_and_save_print_to_ram(float z_move, float e_move)
   st_reset_timer();
 	sei();
 	if ((z_move != 0) || (e_move != 0)) { // extruder or z move
-#if 1
+
     // Rather than calling plan_buffer_line directly, push the move into the command queue so that
     // the caller can continue processing. This is used during powerpanic to save the state as we
     // move away from the print.
@@ -11510,13 +11605,6 @@ void stop_and_save_print_to_ram(float z_move, float e_move)
     // If this call is invoked from the main Arduino loop() function, let the caller know that the command
     // in the command queue is not the original command, but a new one, so it should not be removed from the queue.
     repeatcommand_front();
-#else
-		plan_buffer_line(saved_pos[X_AXIS], saved_pos[Y_AXIS], saved_pos[Z_AXIS] + z_move, saved_pos[E_AXIS] + e_move, homing_feedrate[Z_AXIS], active_extruder);
-    st_synchronize(); //wait moving
-    memcpy(current_position, saved_pos, sizeof(saved_pos));
-    set_destination_to_current();
-#endif
-    waiting_inside_plan_buffer_line_print_aborted = true; //unroll the stack
   }
 }
 
@@ -11539,10 +11627,13 @@ void restore_print_from_ram_and_continue(float e_move)
     if (fan_check_error == EFCE_FIXED) fan_check_error = EFCE_OK; //reenable serial stream processing if printing from usb
 #endif
 	
-//	for (int axis = X_AXIS; axis <= E_AXIS; axis++)
-//	    current_position[axis] = st_get_position_mm(axis);
-	active_extruder = saved_active_extruder; //restore active_extruder
-	fanSpeed = saved_fanSpeed;
+    // restore bed temperature (bed can be disabled during a thermal warning)
+    if (degBed() != saved_bed_temperature)
+        setTargetBed(saved_bed_temperature);
+
+	// restore active_extruder
+	active_extruder = saved_active_extruder;
+	fanSpeed = saved_fan_speed;
 	if (degTargetHotend(saved_active_extruder) != saved_extruder_temperature)
 	{
 		setTargetHotendSafe(saved_extruder_temperature, saved_active_extruder);
@@ -11600,14 +11691,14 @@ void restore_print_from_ram_and_continue(float e_move)
 	lcd_setstatuspgm(MSG_WELCOME);
     saved_printing_type = PRINTING_TYPE_NONE;
 	saved_printing = false;
-    waiting_inside_plan_buffer_line_print_aborted = true; //unroll the stack
+    planner_aborted = true; // unroll the stack
 }
 
 // Cancel the state related to a currently saved print
 void cancel_saved_printing()
 {
     eeprom_update_byte((uint8_t*)EEPROM_UVLO, 0);
-    saved_target[0] = SAVED_TARGET_UNSET;
+    saved_start_position[0] = SAVED_START_POSITION_UNSET;
     saved_printing_type = PRINTING_TYPE_NONE;
     saved_printing = false;
 }
