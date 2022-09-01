@@ -81,6 +81,7 @@
 #include "math.h"
 #include "util.h"
 #include "Timer.h"
+#include "Prusa_farm.h"
 
 #include <avr/wdt.h>
 #include <avr/pgmspace.h>
@@ -161,8 +162,6 @@
 CardReader card;
 #endif
 
-unsigned long PingTime = _millis();
-
 uint8_t mbl_z_probe_nr = 3; //numer of Z measurements for each point in mesh bed leveling calibration
 
 //used for PINDA temp calibration and pause print
@@ -205,12 +204,6 @@ static LongTimer crashDetTimer;
 //unsigned long load_filament_time;
 
 bool mesh_bed_leveling_flag = false;
-
-#ifdef PRUSA_M28
-bool prusa_sd_card_upload = false;
-#endif
-
-uint8_t status_number = 0;
 
 unsigned long total_filament_used;
 HeatingStatus heating_status;
@@ -296,10 +289,6 @@ uint8_t host_keepalive_interval = HOST_KEEPALIVE_INTERVAL;
 const char errormagic[] PROGMEM = "Error:";
 const char echomagic[] PROGMEM = "echo:";
 const char G28W0[] PROGMEM = "G28 W0";
-
-bool no_response = false;
-uint8_t important_status;
-uint8_t saved_filament_type;
 
 // Define some coordinates outside the clamp limits (making them invalid past the parsing stage) so
 // that they can be used later for various logical checks
@@ -641,7 +630,6 @@ void crashdet_detected(uint8_t mask)
     lcd_setstatus(msg);
 
 	gcode_G28(true, true, false); //home X and Y
-	st_synchronize();
 
 	if (automatic_recovery_after_crash) {
 		enquecommand_P(PSTR("CRASH_RECOVER"));
@@ -766,8 +754,7 @@ static void factory_reset(char level)
 		// Force the "Follow calibration flow" message at the next boot up.
 		calibration_status_store(CALIBRATION_STATUS_Z_CALIBRATION);
 		eeprom_write_byte((uint8_t*)EEPROM_WIZARD_ACTIVE, 2); //run wizard
-		farm_mode = false;
-		eeprom_update_byte((uint8_t*)EEPROM_FARM_MODE, farm_mode);
+		farm_disable();
 
 #ifdef FILAMENT_SENSOR
 		fsensor_enable();
@@ -1102,25 +1089,7 @@ void setup()
 	setup_killpin();
 	setup_powerhold();
 
-	farm_mode = eeprom_read_byte((uint8_t*)EEPROM_FARM_MODE); 
-	if (farm_mode == 0xFF) {
-		farm_mode = false; //if farm_mode has not been stored to eeprom yet and farm number is set to zero or EEPROM is fresh, deactivate farm mode
-		eeprom_update_byte((uint8_t*)EEPROM_FARM_MODE, farm_mode);
-	} else if (farm_mode) {
-		no_response = true; //we need confirmation by recieving PRUSA thx
-		important_status = 8;
-		prusa_statistics(8);
-#ifdef HAS_SECOND_SERIAL_PORT
-		selectedSerialPort = 1;
-#endif //HAS_SECOND_SERIAL_PORT
-		MYSERIAL.begin(BAUDRATE);
-#ifdef FILAMENT_SENSOR
-		//disabled filament autoload (PFW360)
-		fsensor_autoload_set(false);
-#endif //FILAMENT_SENSOR
-		// ~ FanCheck -> on
-		eeprom_update_byte((uint8_t*)EEPROM_FAN_CHECK_ENABLED, true);
-	}
+    farm_mode_init();
 
 #ifdef TMC2130
     if( FarmOrUserECool() ){
@@ -1404,11 +1373,9 @@ void setup()
     enable_z();
 #endif
 
-    if (farm_mode) {
-        // The farm monitoring SW may accidentally expect 
-        // 2 messages of "printer started" to consider a printer working.
-        prusa_statistics(8);
-    }
+    // The farm monitoring SW may accidentally expect 
+    // 2 messages of "printer started" to consider a printer working.
+    prusa_statistics(8);
 
 	// Enable Toshiba FlashAir SD card / WiFi enahanced card.
 	card.ToshibaFlashAir_enable(eeprom_read_byte((unsigned char*)EEPROM_TOSHIBA_FLASH_AIR_COMPATIBLITY) == 1);
@@ -1706,79 +1673,6 @@ ISR(BADISR_vect)
 void stack_error() {
     crash_and_burn(dump_crash_reason::stack_error);
 }
-
-#ifdef PRUSA_M28
-void trace();
-
-#define CHUNK_SIZE 64 // bytes
-#define SAFETY_MARGIN 1
-char chunk[CHUNK_SIZE+SAFETY_MARGIN];
-
-void serial_read_stream() {
-
-    setAllTargetHotends(0);
-    setTargetBed(0);
-
-    lcd_clear();
-    lcd_puts_P(PSTR(" Upload in progress"));
-
-    // first wait for how many bytes we will receive
-    uint32_t bytesToReceive;
-
-    // receive the four bytes
-    char bytesToReceiveBuffer[4];
-    for (int i=0; i<4; i++) {
-        int data;
-        while ((data = MYSERIAL.read()) == -1) {};
-        bytesToReceiveBuffer[i] = data;
-
-    }
-
-    // make it a uint32
-    memcpy(&bytesToReceive, &bytesToReceiveBuffer, 4);
-
-    // we're ready, notify the sender
-    MYSERIAL.write('+');
-
-    // lock in the routine
-    uint32_t receivedBytes = 0;
-    while (prusa_sd_card_upload) {
-        int i;
-        for (i=0; i<CHUNK_SIZE; i++) {
-            int data;
-
-            // check if we're not done
-            if (receivedBytes == bytesToReceive) {
-                break;
-            }
-
-            // read the next byte
-            while ((data = MYSERIAL.read()) == -1) {};
-            receivedBytes++;
-
-            // save it to the chunk
-            chunk[i] = data;
-        }
-
-        // write the chunk to SD
-        card.write_command_no_newline(&chunk[0]);
-
-        // notify the sender we're ready for more data
-        MYSERIAL.write('+');
-
-        // for safety
-        manage_heater();
-
-        // check if we're done
-        if(receivedBytes == bytesToReceive) {
-            trace(); // beep
-            card.closefile();
-            prusa_sd_card_upload = false;
-            SERIAL_PROTOCOLLNRPGM(MSG_FILE_SAVED);
-        }
-    }
-}
-#endif //PRUSA_M28
 
 
 /**
@@ -2511,96 +2405,7 @@ void retract(bool retracting, bool swapretract = false) {
 } //retract
 #endif //FWRETRACT
 
-#ifdef PRUSA_M28
-void trace() {
-    Sound_MakeCustom(25,440,true);
-}
-#endif
 
-/*
-void ramming() {
-//	  float tmp[4] = DEFAULT_MAX_FEEDRATE;
-	if (current_temperature[0] < 230) {
-		//PLA
-
-		max_feedrate[E_AXIS] = 50;
-		//current_position[E_AXIS] -= 8;
-		//plan_buffer_line_curposXYZE(2100 / 60, active_extruder);
-		//current_position[E_AXIS] += 8;
-		//plan_buffer_line_curposXYZE(2100 / 60, active_extruder);
-		current_position[E_AXIS] += 5.4;
-		plan_buffer_line_curposXYZE(2800 / 60, active_extruder);
-		current_position[E_AXIS] += 3.2;
-		plan_buffer_line_curposXYZE(3000 / 60, active_extruder);
-		current_position[E_AXIS] += 3;
-		plan_buffer_line_curposXYZE(3400 / 60, active_extruder);
-		st_synchronize();
-		max_feedrate[E_AXIS] = 80;
-		current_position[E_AXIS] -= 82;
-		plan_buffer_line_curposXYZE(9500 / 60, active_extruder);
-		max_feedrate[E_AXIS] = 50;//tmp[E_AXIS];
-		current_position[E_AXIS] -= 20;
-		plan_buffer_line_curposXYZE(1200 / 60, active_extruder);
-		current_position[E_AXIS] += 5;
-		plan_buffer_line_curposXYZE(400 / 60, active_extruder);
-		current_position[E_AXIS] += 5;
-		plan_buffer_line_curposXYZE(600 / 60, active_extruder);
-		current_position[E_AXIS] -= 10;
-		st_synchronize();
-		plan_buffer_line_curposXYZE(600 / 60, active_extruder);
-		current_position[E_AXIS] += 10;
-		plan_buffer_line_curposXYZE(600 / 60, active_extruder);
-		current_position[E_AXIS] -= 10;
-		plan_buffer_line_curposXYZE(800 / 60, active_extruder);
-		current_position[E_AXIS] += 10;
-		plan_buffer_line_curposXYZE(800 / 60, active_extruder);
-		current_position[E_AXIS] -= 10;
-		plan_buffer_line_curposXYZE(800 / 60, active_extruder);
-		st_synchronize();
-	}
-	else {
-		//ABS
-		max_feedrate[E_AXIS] = 50;
-		//current_position[E_AXIS] -= 8;
-		//plan_buffer_line_curposXYZE(2100 / 60, active_extruder);
-		//current_position[E_AXIS] += 8;
-		//plan_buffer_line_curposXYZE(2100 / 60, active_extruder);
-		current_position[E_AXIS] += 3.1;
-		plan_buffer_line_curposXYZE(2000 / 60, active_extruder);
-		current_position[E_AXIS] += 3.1;
-		plan_buffer_line_curposXYZE(2500 / 60, active_extruder);
-		current_position[E_AXIS] += 4;
-		plan_buffer_line_curposXYZE(3000 / 60, active_extruder);
-		st_synchronize();
-		//current_position[X_AXIS] += 23; //delay
-		//plan_buffer_line_curposXYZE(600/60, active_extruder); //delay
-		//current_position[X_AXIS] -= 23; //delay
-		//plan_buffer_line_curposXYZE(600/60, active_extruder); //delay
-		_delay(4700);
-		max_feedrate[E_AXIS] = 80;
-		current_position[E_AXIS] -= 92;
-		plan_buffer_line_curposXYZE(9900 / 60, active_extruder);
-		max_feedrate[E_AXIS] = 50;//tmp[E_AXIS];
-		current_position[E_AXIS] -= 5;
-		plan_buffer_line_curposXYZE(800 / 60, active_extruder);
-		current_position[E_AXIS] += 5;
-		plan_buffer_line_curposXYZE(400 / 60, active_extruder);
-		current_position[E_AXIS] -= 5;
-		plan_buffer_line_curposXYZE(600 / 60, active_extruder);
-		st_synchronize();
-		current_position[E_AXIS] += 5;
-		plan_buffer_line_curposXYZE(600 / 60, active_extruder);
-		current_position[E_AXIS] -= 5;
-		plan_buffer_line_curposXYZE(600 / 60, active_extruder);
-		current_position[E_AXIS] += 5;
-		plan_buffer_line_curposXYZE(600 / 60, active_extruder);
-		current_position[E_AXIS] -= 5;
-		plan_buffer_line_curposXYZE(600 / 60, active_extruder);
-		st_synchronize();
-
-	}
-  }
-*/
 
 #ifdef TMC2130
 void force_high_power_mode(bool start_high_power_section) {
@@ -2971,7 +2776,7 @@ static void gcode_G28(bool home_x_axis, long home_x_value, bool home_y_axis, lon
     }
 #endif
 
-	  if (farm_mode) { prusa_statistics(20); };
+      prusa_statistics(20);
 
       st_synchronize();
 	  homing_flag = false;
@@ -3681,10 +3486,7 @@ static void gcode_M600(bool automatic, float x_position, float y_position, float
     st_synchronize();
     float lastpos[4];
 
-    if (farm_mode)
-    {
-        prusa_statistics(22);
-    }
+    prusa_statistics(22);
 
     //First backup current position and settings
     int feedmultiplyBckp = feedmultiply;
@@ -3808,10 +3610,7 @@ void gcode_M701()
 {
 	printf_P(PSTR("gcode_M701 begin\n"));
 
-	if (farm_mode)
-	{
-		prusa_statistics(22);
-	}
+    prusa_statistics(22);
 
 	if (mmu_enabled) 
 	{
@@ -4420,13 +4219,11 @@ void process_commands()
     
     Set of internal PRUSA commands
     #### Usage
-         PRUSA [ Ping | PRN | FAN | fn | thx | uvlo | MMURES | RESET | fv | M28 | SN | Fir | Rev | Lang | Lz | FR ]
+         PRUSA [ PRN | FAN | thx | uvlo | MMURES | RESET | fv | M28 | SN | Fir | Rev | Lang | Lz | FR ]
     
     #### Parameters
-      - `Ping` 
       - `PRN` - Prints revision of the printer
       - `FAN` - Prints fan details
-      - `fn` - Prints farm no.
       - `thx` 
       - `uvlo` 
       - `MMURES` - Reset MMU
@@ -4444,29 +4241,17 @@ void process_commands()
       - `nozzle` - prints nozzle diameter (farm mode only), works like M862.1 P, e.g. `PRUSA nozzle`
     */
 
-
-		if (code_seen_P(PSTR("Ping"))) {  // PRUSA Ping
-			if (farm_mode) {
-				PingTime = _millis();
-			}	  
-		}
-		else if (code_seen_P(PSTR("PRN"))) { // PRUSA PRN
-		  printf_P(_N("%u"), status_number);
-
-        } else if( code_seen_P(PSTR("FANPINTST"))){
+        if (farm_prusa_code_seen()) {}
+        else if(code_seen_P(PSTR("FANPINTST"))) {
             gcode_PRUSA_BadRAMBoFanTest();
-        }else if (code_seen_P(PSTR("FAN"))) { // PRUSA FAN
-			printf_P(_N("E0:%d RPM\nPRN0:%d RPM\n"), 60*fan_speed[0], 60*fan_speed[1]);
-		}
-		else if (code_seen_P(PSTR("thx"))) // PRUSA thx
-		{
-			no_response = false;
-		}	
-		else if (code_seen_P(PSTR("uvlo"))) // PRUSA uvlo
-		{
-               eeprom_update_byte((uint8_t*)EEPROM_UVLO,0); 
-               enquecommand_P(PSTR("M24")); 
-		}	
+        }
+        else if (code_seen_P(PSTR("FAN"))) { // PRUSA FAN
+            printf_P(_N("E0:%d RPM\nPRN0:%d RPM\n"), 60*fan_speed[0], 60*fan_speed[1]);
+        }
+        else if (code_seen_P(PSTR("uvlo"))) { // PRUSA uvlo
+            eeprom_update_byte((uint8_t*)EEPROM_UVLO,0); 
+            enquecommand_P(PSTR("M24")); 
+        }
 		else if (code_seen_P(PSTR("MMURES"))) // PRUSA MMURES
 		{
 			mmu_reset();
@@ -4481,30 +4266,7 @@ void process_commands()
 #elif defined(BOOTAPP) //this is a safety precaution. This is because the new bootloader turns off the heaters, but the old one doesn't. The watchdog should be used most of the time.
             asm volatile("jmp 0x3E000");
 #endif
-        } else if (code_seen_P(PSTR("fv"))) { // PRUSA fv
-        // get file version
-        #ifdef SDSUPPORT
-        card.openFileReadFilteredGcode(strchr_pointer + 3,true);
-        while (true) {
-            uint16_t readByte = card.getFilteredGcodeChar();
-            MYSERIAL.write(readByte);
-            if (readByte=='\n') {
-                break;
-            }
         }
-        card.closefile();
-
-        #endif // SDSUPPORT
-
-    }
-#ifdef PRUSA_M28
-	else if (code_seen_P(PSTR("M28"))) { // PRUSA M28
-        trace();
-        prusa_sd_card_upload = true;
-        card.openFileWrite(strchr_pointer+4);
-
-	}
-#endif //PRUSA_M28
 #ifdef PRUSA_SN_SUPPORT
 	else if (code_seen_P(PSTR("SN"))) { // PRUSA SN
         char SN[20];
@@ -5547,30 +5309,23 @@ eeprom_update_word((uint16_t*)EEPROM_NOZZLE_DIAMETER_uM,0xFFFF);
     }
     break;
 
+#ifdef PRUSA_FARM
     /*!
     ### G98 - Activate farm mode <a href="https://reprap.org/wiki/G-code#G98:_Activate_farm_mode">G98: Activate farm mode</a>
-	Enable Prusa-specific Farm functions and g-code.
+    Enable Prusa-specific Farm functions and g-code.
     See Internal Prusa commands.
     */
-	case 98:
-		farm_mode = 1;
-		PingTime = _millis();
-		eeprom_update_byte((unsigned char *)EEPROM_FARM_MODE, farm_mode);
-		SilentModeMenu = SILENT_MODE_OFF;
-		eeprom_update_byte((unsigned char *)EEPROM_SILENT, SilentModeMenu);
-		fCheckModeInit();                       // alternatively invoke printer reset
-		break;
+    case 98:
+        farm_gcode_g98();
+        break;
 
     /*! ### G99 - Deactivate farm mode <a href="https://reprap.org/wiki/G-code#G99:_Deactivate_farm_mode">G99: Deactivate farm mode</a>
- 	Disables Prusa-specific Farm functions and g-code.
-   */
-	case 99:
-		farm_mode = 0;
-		lcd_printer_connected();
-		eeprom_update_byte((unsigned char *)EEPROM_FARM_MODE, farm_mode);
-		lcd_update(2);
-          fCheckModeInit();                       // alternatively invoke printer reset
-		break;
+    Disables Prusa-specific Farm functions and g-code.
+    */
+    case 99:
+        farm_gcode_g99();
+        break;
+#endif //PRUSA_FARM
 	default:
 		printf_P(MSG_UNKNOWN_CODE, 'G', cmdbuffer + bufindr + CMDHDRSIZE);
     }
@@ -6438,7 +6193,7 @@ Sigma_Exit:
       }
       LCD_MESSAGERPGM(_T(MSG_HEATING));
 	  heating_status = HeatingStatus::EXTRUDER_HEATING;
-	  if (farm_mode) { prusa_statistics(1); };
+      prusa_statistics(1);
 
 #ifdef AUTOTEMP
         autotemp_enabled=false;
@@ -6469,7 +6224,7 @@ Sigma_Exit:
 
         LCD_MESSAGERPGM(_T(MSG_HEATING_COMPLETE));
 		heating_status = HeatingStatus::EXTRUDER_HEATING_COMPLETE;
-		if (farm_mode) { prusa_statistics(2); };
+        prusa_statistics(2);
         
         //starttime=_millis();
         previous_millis_cmd.start();
@@ -6495,7 +6250,7 @@ Sigma_Exit:
         bool CooldownNoWait = false;
         LCD_MESSAGERPGM(_T(MSG_BED_HEATING));
 		heating_status = HeatingStatus::BED_HEATING;
-		if (farm_mode) { prusa_statistics(1); };
+        prusa_statistics(1);
         if (code_seen('S')) 
 		{
           setTargetBed(code_value());
@@ -8332,14 +8087,6 @@ Sigma_Exit:
                          nDiameter=(uint16_t)(code_value()*1000.0+0.5); // [,um]
                          nozzle_diameter_check(nDiameter);
                          }
-/*
-                    else if(code_seen('S')&&farm_mode)
-                         {
-                         nDiameter=(uint16_t)(code_value()*1000.0+0.5); // [,um]
-                         eeprom_update_byte((uint8_t*)EEPROM_NOZZLE_DIAMETER,(uint8_t)ClNozzleDiameter::_Diameter_Undef); // for correct synchronization after farm-mode exiting
-                         eeprom_update_word((uint16_t*)EEPROM_NOZZLE_DIAMETER_uM,nDiameter);
-                         }
-*/
                     else if(code_seen('Q'))
                          SERIAL_PROTOCOLLN((float)eeprom_read_word((uint16_t*)EEPROM_NOZZLE_DIAMETER_uM)/1000.0);
                     break;
@@ -9747,7 +9494,6 @@ if(0)
 						lcd_update_enable(true);
 */
 						eFilamentAction=FilamentAction::AutoLoad;
-						bFilamentFirstRun=false;
 						if(target_temperature[0] >= extrude_min_temp){
 							bFilamentPreheatState=true;
 //							mFilamentItem(target_temperature[0],target_temperature_bed);
@@ -11316,7 +11062,7 @@ void restore_print_from_eeprom(bool mbl_was_active) {
 	int feedmultiply_rec;
 	uint8_t fan_speed_rec;
 	char cmd[48];
-	char filename[13];
+	char filename[FILENAME_LENGTH];
 	uint8_t depth = 0;
 	char dir_name[9];
 
@@ -11564,7 +11310,7 @@ void stop_and_save_print_to_ram(float z_move, float e_move)
     saved_feedmultiply2 = feedmultiply; //save feedmultiply
 	saved_active_extruder = active_extruder; //save active_extruder
 	saved_extruder_temperature = degTargetHotend(active_extruder);
-	saved_bed_temperature = degBed();
+	saved_bed_temperature = degTargetBed();
 	saved_extruder_relative_mode = axis_relative_modes & E_AXIS_MASK;
 	saved_fan_speed = fanSpeed;
 	cmdqueue_reset(); //empty cmdqueue
