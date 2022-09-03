@@ -7521,7 +7521,7 @@ Sigma_Exit:
     #### Usage
 
         M310                                           ; report values
-        M310 [ A ]                                     ; autotune
+        M310 [ A ] [ F ]                               ; autotune
         M310 [ S ]                                     ; set 0=disable 1=enable
         M310 [ I ] [ R ]                               ; set resistance at index
         M310 [ P | C ]                                 ; set power, capacitance
@@ -7539,12 +7539,13 @@ Sigma_Exit:
     - `W` - warning threshold (K/s; default in variant)
     - `T` - ambient temperature correction (K; default in variant)
     - `A` - autotune C+R values
+    - `F` - force model self-test state (0=off 1=on) during autotune using current values
     */
     case 310:
     {
         // parse all parameters
         float P = NAN, C = NAN, R = NAN, E = NAN, W = NAN, T = NAN;
-        int8_t I = -1, S = -1, B = -1, A = -1;
+        int8_t I = -1, S = -1, B = -1, A = -1, F = -1;
         if(code_seen('C')) C = code_value();
         if(code_seen('P')) P = code_value();
         if(code_seen('I')) I = code_value_short();
@@ -7555,6 +7556,7 @@ Sigma_Exit:
         if(code_seen('W')) W = code_value();
         if(code_seen('T')) T = code_value();
         if(code_seen('A')) A = code_value_short();
+        if(code_seen('F')) F = code_value_short();
 
         // report values if nothing has been requested
         if(isnan(C) && isnan(P) && isnan(R) && isnan(E) && isnan(W) && isnan(T) && I < 0 && S < 0 && B < 0 && A < 0) {
@@ -7571,7 +7573,7 @@ Sigma_Exit:
         if(S >= 0) temp_model_set_enabled(S);
 
         // run autotune
-        if(A >= 0) temp_model_autotune(A);
+        if(A >= 0) temp_model_autotune(A, F > 0);
     }
     break;
 #endif
@@ -8948,13 +8950,13 @@ Sigma_Exit:
     ## D70 - Enable low-level temperature model logging for offline simulation
     #### Usage
 
-        D70 [ I ]
+        D70 [ S ]
 
     #### Parameters
-    - `I` - Enable 0-1 (default 0)
+    - `S` - Enable 0-1 (default 0)
     */
     case 70: {
-        if(code_seen('I'))
+        if(code_seen('S'))
             temp_model_log_enable(code_value_short());
         break;
     }
@@ -9704,6 +9706,8 @@ void ThermalStop(bool allow_pause)
         Stopped = true;
         if(allow_pause && (IS_SD_PRINTING || usb_timer.running())) {
             if (!isPrintPaused) {
+                lcd_setalertstatuspgm(_T(MSG_PAUSED_THERMAL_ERROR), LCD_STATUS_CRITICAL);
+
                 // we cannot make a distinction for the host here, the pause must be instantaneous
                 // so we call the lcd_pause_print to save the print state internally. Thermal errors
                 // disable heaters and save the original temperatures to saved_*, which will get
