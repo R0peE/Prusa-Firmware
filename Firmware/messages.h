@@ -11,6 +11,7 @@ extern "C" {
 
 // LCD Menu Messages
 //internationalized messages
+extern const char MSG_ALWAYS[];
 extern const char MSG_AUTO_HOME[];
 extern const char MSG_BABYSTEP_Z[];
 extern const char MSG_BABYSTEP_Z_NOT_SET[];
@@ -98,6 +99,8 @@ extern const char MSG_SELFTEST_MOTOR[];
 extern const char MSG_SELFTEST_FILAMENT_SENSOR[];
 extern const char MSG_SELFTEST_WIRINGERROR[];
 extern const char MSG_SETTINGS[];
+extern const char MSG_SELECT_LANGUAGE[];
+extern const char MSG_SORTING_FILES[];
 extern const char MSG_TOTAL[];
 extern const char MSG_TOTAL_FAILURES[];
 extern const char MSG_HW_SETUP[];
