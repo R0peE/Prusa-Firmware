@@ -10,6 +10,7 @@
 // Printer revision
 #define PRINTER_TYPE PRINTER_MK3S
 #define PRINTER_NAME PRINTER_MK3S_NAME
+#define PRINTER_NAME_ALTERNATE PRINTER_MK3_NAME //the other similar printer to this.
 #define PRINTER_MMU_TYPE PRINTER_MK3S_MMU2
 #define PRINTER_MMU_NAME PRINTER_MK3S_MMU2_NAME
 #define FILAMENT_SIZE "1_75mm_MK3S"
@@ -153,7 +154,8 @@
 
 // Filament sensor
 #define FILAMENT_SENSOR
-#define IR_SENSOR
+#define FILAMENT_SENSOR_TYPE FSENSOR_IR_ANALOG
+#define FSENSOR_PROBING
 
 // Backlash - 
 //#define BACKLASH_X
@@ -180,7 +182,7 @@
 //#define _NO_ASM
 #define DEBUG_DCODES //D codes
 #define DEBUG_STACK_MONITOR        //Stack monitor in stepper ISR
-//#define DEBUG_FSENSOR_LOG          //Reports fsensor status to serial
+//#define DEBUG_CRASHDET_COUNTERS  //Display crash-detection counters on LCD
 //#define DEBUG_RESUME_PRINT       //Resume/save print debug enable 
 //#define DEBUG_UVLO_AUTOMATIC_RECOVER // Power panic automatic recovery debug output 
 //#define DEBUG_DISABLE_XMINLIMIT  //x min limit ignored
@@ -204,8 +206,6 @@
 #define PLANNER_DIAGNOSTICS // Show the planner queue status on printer display.
 #define CMD_DIAGNOSTICS //Show cmd queue length on printer display
 #endif /* DEBUG_BUILD */
-
-//#define FSENSOR_QUALITY
 
 
 #define LINEARITY_CORRECTION
@@ -432,7 +432,7 @@
 #define TEMP_MODEL_C_thr 0.01 // C estimation iteration threshold
 #define TEMP_MODEL_C_itr 30   // C estimation iteration limit
 
-#define TEMP_MODEL_R 29.7     // initial guess for heatblock resistance (K/W)
+#define TEMP_MODEL_R 20.5     // initial guess for heatblock resistance (K/W)
 #define TEMP_MODEL_Rl 5       // R estimation lower limit
 #define TEMP_MODEL_Rh 50      // R estimation upper limit
 #define TEMP_MODEL_R_thr 0.01 // R estimation iteration threshold
@@ -698,6 +698,11 @@
 
 //#define MMU_ALWAYS_CUT
 #define MMU_IDLER_SENSOR_ATTEMPTS_NR 21 //max. number of attempts to load filament if first load failed; value for max bowden length and case when loading fails right at the beginning
+
+// MMU Error pause position
+#define MMU_ERR_X_PAUSE_POS 125
+#define MMU_ERR_Y_PAUSE_POS 0
+#define MMU_ERR_Z_PAUSE_LIFT 20
 
 // Default Arc Interpolation Settings (Now configurable via M214)
 #define DEFAULT_N_ARC_CORRECTION       25 // Number of interpolated segments between corrections.
