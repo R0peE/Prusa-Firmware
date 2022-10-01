@@ -53,6 +53,7 @@ extern void lcd_printNumber(unsigned long n, uint8_t base);
 extern void lcd_printFloat(double number, uint8_t digits);
 
 extern void lcd_print(const char*);
+extern void lcd_print_pad(const char*, uint8_t len);
 extern void lcd_print(char, int = 0);
 extern void lcd_print(unsigned char, int = 0);
 extern void lcd_print(int, int = 10);
@@ -189,14 +190,14 @@ private:
 //Custom characters defined in the first 8 characters of the LCD
 #define LCD_STR_BEDTEMP      "\x00"
 #define LCD_STR_DEGREE       "\x01"
-#define LCD_STR_ARROW_2_DOWN "\x01"
 #define LCD_STR_THERMOMETER  "\x02"
-#define LCD_STR_CONFIRM      "\x02"
 #define LCD_STR_UPLEVEL      "\x03"
 #define LCD_STR_REFRESH      "\x04"
 #define LCD_STR_FOLDER       "\x05"
 #define LCD_STR_FEEDRATE     "\x06"
+#define LCD_STR_ARROW_2_DOWN "\x06"
 #define LCD_STR_CLOCK        "\x07"
+#define LCD_STR_CONFIRM      "\x07"
 #define LCD_STR_ARROW_RIGHT  "\x7E" //from the default character set
 #define LCD_STR_SOLID_BLOCK  "\xFF"  //from the default character set
 

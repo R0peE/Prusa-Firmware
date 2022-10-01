@@ -97,6 +97,8 @@
 #include "temp_model.h"
 #endif
 
+#include "Filament_sensor.h"
+
 //===========================================================================
 //=============================public variables============================
 //===========================================================================
@@ -122,10 +124,6 @@ int current_voltage_raw_pwr = 0;
 #ifdef VOLT_BED_PIN
 int current_voltage_raw_bed = 0;
 #endif
-
-#ifdef IR_SENSOR_ANALOG
-uint16_t current_voltage_raw_IR = 0;
-#endif //IR_SENSOR_ANALOG
 
 int current_temperature_bed_raw = 0;
 float current_temperature_bed = 0.0;
@@ -1186,7 +1184,7 @@ FORCE_INLINE static void applyBabysteps() {
     int curTodo=babystepsTodo[axis]; //get rid of volatile for performance
 
     if(curTodo>0)
-    {
+{
       ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         babystep(axis,/*fwd*/true);
         babystepsTodo[axis]--; //less to do next time
@@ -1212,27 +1210,27 @@ FORCE_INLINE static void soft_pwm_core()
   static unsigned char slow_pwm_count = 0;
   static unsigned char state_heater_0 = 0;
   static unsigned char state_timer_heater_0 = 0;
-#endif 
+#endif
 #if (EXTRUDERS > 1) || defined(HEATERS_PARALLEL)
   static unsigned char soft_pwm_1;
 #ifdef SLOW_PWM_HEATERS
   static unsigned char state_heater_1 = 0;
   static unsigned char state_timer_heater_1 = 0;
-#endif 
+#endif
 #endif
 #if EXTRUDERS > 2
   static unsigned char soft_pwm_2;
 #ifdef SLOW_PWM_HEATERS
   static unsigned char state_heater_2 = 0;
   static unsigned char state_timer_heater_2 = 0;
-#endif 
+#endif
 #endif
 #if defined(OLD_BED_HEATER) && HEATER_BED_PIN > -1
   static unsigned char soft_pwm_b;
 #ifdef SLOW_PWM_HEATERS
   static unsigned char state_heater_b = 0;
   static unsigned char state_timer_heater_b = 0;
-#endif 
+#endif
 #endif
   
 #if defined(FILWIDTH_PIN) &&(FILWIDTH_PIN > -1)
