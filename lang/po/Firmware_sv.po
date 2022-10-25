@@ -456,7 +456,7 @@ msgstr ""
 "Vill du upprepa det sista steget för att justera avståndet mellan munstycket "
 "och värmebädden?"
 
-#. MSG_BTN_CONTINUE c=5
+#. MSG_BTN_CONTINUE c=8
 #: ../../Firmware/mmu2/errors_list.h:282 ../../Firmware/mmu2/errors_list.h:292
 msgid "Done"
 msgstr ""
@@ -537,11 +537,11 @@ msgstr ""
 msgid "Extruder"
 msgstr ""
 
-#. MSG_EXTRUDER_FAN_SPEED c=16
+#. MSG_HOTEND_FAN_SPEED c=15
 #: ../../Firmware/messages.cpp:35 ../../Firmware/ultralcd.cpp:1144
 #: ../../Firmware/ultralcd.cpp:7319
-msgid "Extruder fan:"
-msgstr "Extruderfläkt:"
+msgid "Hotend fan:"
+msgstr "Hotend-fläkt:"
 
 #. MSG_INFO_EXTRUDER c=18
 #: ../../Firmware/ultralcd.cpp:1722
@@ -1004,7 +1004,7 @@ msgstr "Senaste utskriftsfel"
 msgid "Left"
 msgstr "Vänster"
 
-#. MSG_SELFTEST_EXTRUDER_FAN c=20
+#. MSG_SELFTEST_HOTEND_FAN c=20
 #: ../../Firmware/messages.cpp:88 ../../Firmware/ultralcd.cpp:7001
 #: ../../Firmware/ultralcd.cpp:7147 ../../Firmware/ultralcd.cpp:7152
 msgid "Left hotend fan?"
@@ -1212,12 +1212,6 @@ msgstr "Modell"
 #: ../../Firmware/mmu2/errors_list.h:261 ../../Firmware/mmu2/errors_list.h:262
 #: ../../Firmware/mmu2/errors_list.h:263
 msgid "More details online."
-msgstr ""
-
-#. MSG_BTN_MORE c=5
-#: ../../Firmware/mmu2/errors_list.h:287
-#: ../../Firmware/mmu2_error_converter.cpp:153
-msgid "More⏬"
 msgstr ""
 
 #. MSG_SELFTEST_MOTOR c=18
@@ -1638,7 +1632,7 @@ msgstr "Tryck på knappen för att förvärma munstycket och fortsätta."
 msgid "Print aborted"
 msgstr "Utskriften avbröts"
 
-#. MSG_PRINT_FAN_SPEED c=16
+#. MSG_PRINT_FAN_SPEED c=15
 #: ../../Firmware/messages.cpp:36 ../../Firmware/ultralcd.cpp:1144
 #: ../../Firmware/ultralcd.cpp:7322
 msgid "Print fan:"
@@ -1770,7 +1764,7 @@ msgstr "Återupptar utskrift"
 msgid "Retract from FINDA"
 msgstr ""
 
-#. MSG_BTN_RETRY c=5
+#. MSG_BTN_RETRY c=8
 #: ../../Firmware/mmu2/errors_list.h:281 ../../Firmware/mmu2/errors_list.h:291
 msgid "Retry"
 msgstr ""
@@ -2036,7 +2030,7 @@ msgstr "Tyst"
 msgid "Steel sheets"
 msgstr "Metallskivor"
 
-#. MSG_BTN_STOP c=5
+#. MSG_BTN_STOP c=8
 #: ../../Firmware/mmu2/errors_list.h:285 ../../Firmware/mmu2/errors_list.h:295
 msgid "Stop"
 msgstr ""
@@ -2211,7 +2205,7 @@ msgid ""
 "is free. Check FINDA connection."
 msgstr ""
 
-#. MSG_BTN_UNLOAD c=6
+#. MSG_BTN_UNLOAD c=8
 #: ../../Firmware/mmu2/errors_list.h:284 ../../Firmware/mmu2/errors_list.h:294
 msgid "Unload"
 msgstr ""

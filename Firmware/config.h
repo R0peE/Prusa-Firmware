@@ -4,7 +4,7 @@
 #include "boards.h"
 #include "Configuration_prusa.h"
 
-#include "Configuration_prusa.h"
+#include "Configuration_var.h"
 #include "pins.h"
 
 #if (defined(VOLT_IR_PIN) && defined(IR_SENSOR))
@@ -70,7 +70,7 @@
 
 // This is set by the cmake build to be able to take control of
 // the language flag, without breaking existing build mechanisms.
-#ifndef CMAKE_LANG_CONTROL
+#ifndef CMAKE_CONTROL
 //LANG - Multi-language support
 #define LANG_MODE              0 // primary language only
 //#define LANG_MODE              1 // sec. language support

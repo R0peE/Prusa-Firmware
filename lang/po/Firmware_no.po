@@ -456,7 +456,7 @@ msgstr ""
 "Vil du repetere det siste trinnet for å omjustere avstanden mellom dysen og "
 "platen?"
 
-#. MSG_BTN_CONTINUE c=5
+#. MSG_BTN_CONTINUE c=8
 #: ../../Firmware/mmu2/errors_list.h:282 ../../Firmware/mmu2/errors_list.h:292
 msgid "Done"
 msgstr ""
@@ -537,11 +537,11 @@ msgstr ""
 msgid "Extruder"
 msgstr "Ekstruder"
 
-#. MSG_EXTRUDER_FAN_SPEED c=16
+#. MSG_HOTEND_FAN_SPEED c=15
 #: ../../Firmware/messages.cpp:35 ../../Firmware/ultralcd.cpp:1144
 #: ../../Firmware/ultralcd.cpp:7319
-msgid "Extruder fan:"
-msgstr "Ekstrudervifte:"
+msgid "Hotend fan:"
+msgstr "Hotend-vifte:"
 
 #. MSG_INFO_EXTRUDER c=18
 #: ../../Firmware/ultralcd.cpp:1722
@@ -997,11 +997,11 @@ msgstr "Siste printfeil"
 msgid "Left"
 msgstr "Venstre"
 
-#. MSG_SELFTEST_EXTRUDER_FAN c=20
+#. MSG_SELFTEST_HOTEND_FAN c=20
 #: ../../Firmware/messages.cpp:88 ../../Firmware/ultralcd.cpp:7001
 #: ../../Firmware/ultralcd.cpp:7147 ../../Firmware/ultralcd.cpp:7152
 msgid "Left hotend fan?"
-msgstr "Venst. ekstr. vifte?"
+msgstr "Venst. hotendvifte?"
 
 #. MSG_BED_CORRECTION_LEFT c=14
 #: ../../Firmware/ultralcd.cpp:2750
@@ -1205,12 +1205,6 @@ msgstr "Modell"
 #: ../../Firmware/mmu2/errors_list.h:261 ../../Firmware/mmu2/errors_list.h:262
 #: ../../Firmware/mmu2/errors_list.h:263
 msgid "More details online."
-msgstr ""
-
-#. MSG_BTN_MORE c=5
-#: ../../Firmware/mmu2/errors_list.h:287
-#: ../../Firmware/mmu2_error_converter.cpp:153
-msgid "More⏬"
 msgstr ""
 
 #. MSG_SELFTEST_MOTOR c=18
@@ -1627,7 +1621,7 @@ msgstr "Trykk valghjulet for å forvarme dysen og fortsette."
 msgid "Print aborted"
 msgstr "Print avbrutt"
 
-#. MSG_PRINT_FAN_SPEED c=16
+#. MSG_PRINT_FAN_SPEED c=15
 #: ../../Firmware/messages.cpp:36 ../../Firmware/ultralcd.cpp:1144
 #: ../../Firmware/ultralcd.cpp:7322
 msgid "Print fan:"
@@ -1755,7 +1749,7 @@ msgstr "Gjenopptar print"
 msgid "Retract from FINDA"
 msgstr ""
 
-#. MSG_BTN_RETRY c=5
+#. MSG_BTN_RETRY c=8
 #: ../../Firmware/mmu2/errors_list.h:281 ../../Firmware/mmu2/errors_list.h:291
 msgid "Retry"
 msgstr ""
@@ -2018,7 +2012,7 @@ msgstr "Stille"
 msgid "Steel sheets"
 msgstr "Stål plate"
 
-#. MSG_BTN_STOP c=5
+#. MSG_BTN_STOP c=8
 #: ../../Firmware/mmu2/errors_list.h:285 ../../Firmware/mmu2/errors_list.h:295
 msgid "Stop"
 msgstr ""
@@ -2194,7 +2188,7 @@ msgid ""
 "is free. Check FINDA connection."
 msgstr ""
 
-#. MSG_BTN_UNLOAD c=6
+#. MSG_BTN_UNLOAD c=8
 #: ../../Firmware/mmu2/errors_list.h:284 ../../Firmware/mmu2/errors_list.h:294
 msgid "Unload"
 msgstr ""
