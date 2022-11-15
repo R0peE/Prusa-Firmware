@@ -116,6 +116,7 @@ static void lcd_menu_xyz_offset();
 static void lcd_menu_fails_stats_mmu();
 static void lcd_menu_fails_stats_mmu_print();
 static void lcd_menu_fails_stats_mmu_total();
+static void lcd_menu_toolchange_stats_mmu_total();
 static void mmu_unload_filament();
 static void lcd_v2_calibration();
 //static void lcd_menu_show_sensors_state();      // NOT static due to using inside "Marlin_main" module ("manage_inactivity()")
@@ -583,25 +584,12 @@ void lcdui_print_status_line(void) {
         lcd_status_message_timeout.expired_cont(LCD_STATUS_INFO_TIMEOUT))
     {
         // If printing from SD, show what we are printing
-		const char* longFilenameOLD = (card.longFilename[0] ? card.longFilename : card.filename);
-        if(strlen(longFilenameOLD) > LCD_WIDTH) {
-            uint8_t gh = scrollstuff;
-            while (((gh - scrollstuff) < LCD_WIDTH)) {
-                if (longFilenameOLD[gh] == '\0') {
-                    lcd_set_cursor(gh - scrollstuff, 3);
-                    lcd_print(longFilenameOLD[gh - 1]);
-                    scrollstuff = 0;
-                    gh = scrollstuff;
-                    break;
-                } else {
-                    lcd_set_cursor(gh - scrollstuff, 3);
-                    lcd_print(longFilenameOLD[gh - 1]);
-                    gh++;
-                }
-            }
+        const char* longFilenameOLD = (card.longFilename[0] ? card.longFilename : card.filename);
+        if( lcd_print_pad(&longFilenameOLD[scrollstuff], LCD_WIDTH) )
+        {
             scrollstuff++;
         } else {
-            lcd_printf_P(PSTR("%-20s"), longFilenameOLD);
+            scrollstuff = 0;
         }
     } else { // Otherwise check for other special events
         switch (custom_message_type) {
@@ -1158,6 +1146,7 @@ static void lcd_menu_fails_stats_mmu()
 	MENU_ITEM_BACK_P(_T(MSG_MAIN));
 	MENU_ITEM_SUBMENU_P(_T(MSG_LAST_PRINT), lcd_menu_fails_stats_mmu_print);
 	MENU_ITEM_SUBMENU_P(_T(MSG_TOTAL), lcd_menu_fails_stats_mmu_total);
+    MENU_ITEM_SUBMENU_P(_O(PSTR("Toolchange count")), lcd_menu_toolchange_stats_mmu_total);
 	MENU_END();
 }
 
@@ -1195,13 +1184,17 @@ static void lcd_menu_fails_stats_mmu_print()
 //! @todo Positioning of the messages and values on LCD aren't fixed to their exact place. This causes issues with translations.
 static void lcd_menu_fails_stats_mmu_total()
 {
-    static uint8_t first_time_opening_menu = 0;
-    if (!first_time_opening_menu) {
-        // Send S3 Query; MMU responds with "S3 A%u" where %u is the number of drive errors
+    typedef struct
+    {
+        bool initialized;              // 1byte
+    } _menu_data_t;
+    static_assert(sizeof(menu_data)>= sizeof(_menu_data_t),"_menu_data_t doesn't fit into menu_data");
+    _menu_data_t* _md = (_menu_data_t*)&(menu_data[0]);
+    if(_md->initialized) {
         MMU2::mmu2.get_statistics();
-        first_time_opening_menu = 1;
+        lcd_timeoutToStatus.stop(); //infinite timeout
+        _md->initialized = false;
     }
-    lcd_timeoutToStatus.stop(); //infinite timeout
     lcd_home();
     lcd_printf_P(PSTR("%S\n" " %-16.16S%-3d\n"/* " %-16.16S%-3d\n" " %-16.16S%-3d"*/), 
         _T(MSG_TOTAL_FAILURES),
@@ -1210,10 +1203,38 @@ static void lcd_menu_fails_stats_mmu_total()
         //_i("MMU power fails"), clamp999( mmu_power_failures )); ////MSG_MMU_POWER_FAILS c=15
     if (lcd_clicked())
     {
-        first_time_opening_menu = 0;
         lcd_quick_feedback();
         menu_back();
     }
+}
+
+//! @brief Show Total Failures Statistics MMU
+//!
+//! @code{.unparsed}
+//! |01234567890123456789|
+//! |Toolchange count:   |
+//! |          4294967295|
+//! |                    |
+//! |                    |
+//! ----------------------
+//! @endcode
+static void lcd_menu_toolchange_stats_mmu_total()
+{
+    typedef struct
+    {
+        bool initialized;              // 1byte
+    } _menu_data_t;
+    static_assert(sizeof(menu_data)>= sizeof(_menu_data_t),"_menu_data_t doesn't fit into menu_data");
+    _menu_data_t* _md = (_menu_data_t*)&(menu_data[0]);
+    if(_md->initialized) {
+        lcd_set_cursor(0, 0);
+        lcd_puts_P(PSTR("Toolchange count:"));
+        lcd_set_cursor(10, 1);
+        lcd_print(eeprom_read_dword((uint32_t*)EEPROM_TOTAL_TOOLCHANGE_COUNT));
+        _md->initialized = false;
+    }
+
+    menu_back_if_clicked_fb();
 }
 
 #if defined(TMC2130) && defined(FILAMENT_SENSOR)
@@ -2958,6 +2979,7 @@ bool lcd_calibrate_z_end_stop_manual(bool only_z)
             if (lcd_clicked()) {
                 // Abort a move if in progress.
                 planner_abort_hard();
+                planner_aborted = false;
                 while (lcd_clicked()) ;
                 _delay(10);
                 while (lcd_clicked()) ;
@@ -2974,7 +2996,7 @@ bool lcd_calibrate_z_end_stop_manual(bool only_z)
         uint8_t result = lcd_show_fullscreen_message_yes_no_and_wait_P(_i("Are left and right Z~carriages all up?"), false);////MSG_CONFIRM_CARRIAGE_AT_THE_TOP c=20 r=2
         if (result == LCD_BUTTON_TIMEOUT)
             goto canceled;
-        else if (result == LCD_MIDDLE_BUTTON_CHOICE)
+        else if (result == LCD_LEFT_BUTTON_CHOICE)
             goto calibrated;
         // otherwise perform another round of the Z up dialog.
     }
@@ -6119,28 +6141,20 @@ void lcd_sdcard_menu()
 				_md->offset = 0; //redraw once again from the beginning.
 			if (_md->lcd_scrollTimer.expired(300) || rewindFlag)
 			{
-				uint8_t i = LCD_WIDTH - ((_md->isDir)?2:1);
+				uint8_t len = LCD_WIDTH - ((_md->isDir)? 2 : 1);
 				lcd_set_cursor(0, _md->row);
 				lcd_print('>');
 				if (_md->isDir)
 					lcd_print(LCD_STR_FOLDER[0]);
-				for (; i != 0; i--)
+
+				if( lcd_print_pad(&_md->scrollPointer[_md->offset], len) )
 				{
-					const char* c = (_md->scrollPointer + _md->offset + ((LCD_WIDTH - ((_md->isDir)?2:1)) - i));
-					lcd_print(c[0]);
-					if (c[1])
-						_md->lcd_scrollTimer.start();
-					else
-					{
-						_md->lcd_scrollTimer.stop();
-						break; //stop at the end of the string
-					}
+					_md->lcd_scrollTimer.start();
+					_md->offset++;
+				} else {
+					// stop at the end of the string
+					_md->lcd_scrollTimer.stop();
 				}
-				if (i != 0) //adds spaces if string is incomplete or at the end (instead of null).
-				{
-					lcd_space(i);
-				}
-				_md->offset++;
 			}
 			if (rewindFlag) //go back to sd_menu.
 			{
@@ -7582,7 +7596,10 @@ uint8_t get_message_level()
 
 void menu_lcd_longpress_func(void)
 {
-	backlight_wake();
+    // Wake up the LCD backlight and,
+    // start LCD inactivity timer
+    lcd_timeoutToStatus.start();
+    backlight_wake();
     if (homing_flag || mesh_bed_leveling_flag || menu_menu == lcd_babystep_z || menu_menu == lcd_move_z || menu_block_mask != MENU_BLOCK_NONE)
     {
         // disable longpress during re-entry, while homing, calibration or if a serious error

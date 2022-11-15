@@ -711,6 +711,7 @@ static void factory_reset_stats(){
 
     eeprom_update_word((uint16_t *)EEPROM_MMU_FAIL_TOT, 0);
     eeprom_update_word((uint16_t *)EEPROM_MMU_LOAD_FAIL_TOT, 0);
+    eeprom_update_dword((uint32_t *)EEPROM_TOTAL_TOOLCHANGE_COUNT, 0);
 }
 
 // Factory reset function
@@ -9849,6 +9850,10 @@ void save_statistics(unsigned long _total_filament_used, unsigned long _total_pr
 
 	total_filament_used = 0;
 
+  if (MMU2::mmu2.Enabled())
+  {
+    MMU2::mmu2.update_tool_change_counter_eeprom();
+  }
 }
 
 float calculate_extruder_multiplier(float diameter) {

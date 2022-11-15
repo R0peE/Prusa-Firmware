@@ -118,6 +118,7 @@ MMU2::MMU2()
     , loadingToNozzle(false)
     , inAutoRetry(false)
     , retryAttempts(MAX_RETRIES)
+    , toolchange_counter(0)
 {
 }
 
@@ -220,15 +221,20 @@ void MMU2::mmu_loop() {
         return;
     avoidRecursion = true;
 
-    logicStepLastStatus = LogicStep(); // it looks like the mmu_loop doesn't need to be a blocking call
+    mmu_loop_inner(true);
+
+    avoidRecursion = false;
+}
+
+void __attribute__((noinline)) MMU2::mmu_loop_inner(bool reportErrors)
+{
+    logicStepLastStatus = LogicStep(reportErrors); // it looks like the mmu_loop doesn't need to be a blocking call
 
     if (is_mmu_error_monitor_active){
         // Call this every iteration to keep the knob rotation responsive
         // This includes when mmu_loop is called within manage_response
         ReportErrorHook((uint16_t)lastErrorCode);
     }
-
-    avoidRecursion = false;
 }
 
 void MMU2::CheckFINDARunout()
@@ -301,6 +307,13 @@ void MMU2::DecrementRetryAttempts(){
     }
 }
 
+void MMU2::update_tool_change_counter_eeprom()
+{
+    uint32_t toolchanges = eeprom_read_dword((uint32_t*)EEPROM_TOTAL_TOOLCHANGE_COUNT);
+    eeprom_update_dword((uint32_t *)EEPROM_TOTAL_TOOLCHANGE_COUNT, toolchanges + (uint32_t)read_toolchange_counter());
+    reset_toolchange_counter();
+}
+
 bool MMU2::tool_change(uint8_t index) {
     if( ! WaitForMMUReady())
         return false;
@@ -331,6 +344,7 @@ bool MMU2::tool_change(uint8_t index) {
         // @@TODO really report onto the serial? May be for the Octoprint? Not important now
         //        SERIAL_ECHO_START();
         //        SERIAL_ECHOLNPAIR(MSG_ACTIVE_EXTRUDER, int(extruder));
+        increment_tool_change_counter();
     }
     return true;
 }
@@ -361,6 +375,7 @@ bool MMU2::tool_change(char code, uint8_t slot) {
         extruder = slot;
         SpoolJoin::spooljoin.setSlot(slot);
         set_extrude_min_temp(EXTRUDE_MINTEMP);
+        increment_tool_change_counter();
     } break;
 
     case 'c': {
@@ -511,6 +526,7 @@ bool MMU2::load_filament_to_nozzle(uint8_t index) {
         SpoolJoin::spooljoin.setSlot(index);
 
         Sound_MakeSound(e_SOUND_TYPE_StandardConfirm);
+        increment_tool_change_counter();
     }
     lcd_update_enable(true);
     return true;
@@ -619,9 +635,10 @@ void MMU2::ResumeHotendTemp() {
         lcd_display_message_fullscreen_P(_i("MMU Retry: Restoring temperature...")); ////MSG_MMU_RESTORE_TEMP c=20 r=4
         //@todo better report the event and let the GUI do its work somewhere else
         ReportErrorHookSensorLineRender();
-        waitForHotendTargetTemp(1000, []{
-            ReportErrorHookDynamicRender();
+        waitForHotendTargetTemp(100, []{
             manage_inactivity(true);
+            mmu2.mmu_loop_inner(false);
+            ReportErrorHookDynamicRender();
         });
         lcd_update_enable(true); // temporary hack to stop this locking the printer...
         LogEchoEvent_P(PSTR("Hotend temperature reached"));
@@ -751,7 +768,7 @@ void MMU2::manage_response(const bool move_axes, const bool turn_off_nozzle) {
     }
 }
 
-StepStatus MMU2::LogicStep() {
+StepStatus MMU2::LogicStep(bool reportErrors) {
     CheckUserInput(); // Process any buttons before proceeding with another MMU Query
     StepStatus ss = logic.Step();
     switch (ss) {
@@ -762,30 +779,36 @@ StepStatus MMU2::LogicStep() {
     case Processing:
         OnMMUProgressMsg(logic.Progress());
         break;
-    case CommandError:
-        ReportError(logic.Error(), ErrorSourceMMU);
-        break;
-    case CommunicationTimeout:
-        state = xState::Connecting;
-        ReportError(ErrorCode::MMU_NOT_RESPONDING, ErrorSourcePrinter);
-        break;
-    case ProtocolError:
-        state = xState::Connecting;
-        ReportError(ErrorCode::PROTOCOL_ERROR, ErrorSourcePrinter);
-        break;
-    case VersionMismatch:
-        StopKeepPowered();
-        ReportError(ErrorCode::VERSION_MISMATCH, ErrorSourcePrinter);
-        break;
     case ButtonPushed:
         lastButton = logic.Button();
         LogEchoEvent_P(PSTR("MMU Button pushed"));
         CheckUserInput(); // Process the button immediately
         break;
     default:
-        break;
+        if(reportErrors) {
+            switch (ss)
+            {
+            case CommandError:
+                ReportError(logic.Error(), ErrorSourceMMU);
+                break;
+            case CommunicationTimeout:
+                state = xState::Connecting;
+                ReportError(ErrorCode::MMU_NOT_RESPONDING, ErrorSourcePrinter);
+                break;
+            case ProtocolError:
+                state = xState::Connecting;
+                ReportError(ErrorCode::PROTOCOL_ERROR, ErrorSourcePrinter);
+                break;
+            case VersionMismatch:
+                StopKeepPowered();
+                ReportError(ErrorCode::VERSION_MISMATCH, ErrorSourcePrinter);
+                break;
+            default:
+                break;
+            }
+        }
     }
-    
+
     if( logic.Running() ){
         state = xState::Active;
     }
