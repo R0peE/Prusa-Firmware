@@ -123,7 +123,7 @@ static void lcd_v2_calibration();
 
 static void mmu_fil_eject_menu();
 static void mmu_load_to_nozzle_menu();
-static void mmu_load_to_extruder_menu();
+static void mmu_loading_test_menu();
 static void preheat_or_continue();
 
 #ifdef MMU_HAS_CUTTER
@@ -1827,7 +1827,7 @@ switch(eFilamentAction)
      case FilamentAction::Load:
      case FilamentAction::AutoLoad:
      case FilamentAction::MmuLoad:
-     case FilamentAction::MmuLoadExtruder:
+     case FilamentAction::MmuLoadingTest:
           lcd_puts_P(_i("to load filament"));     ////MSG_TO_LOAD_FIL c=20
           break;
      case FilamentAction::UnLoad:
@@ -1867,7 +1867,7 @@ switch(eFilamentAction)
                enquecommand_P(PSTR("M702"));      // unload filament
                break;
           case FilamentAction::MmuLoad:
-          case FilamentAction::MmuLoadExtruder:
+          case FilamentAction::MmuLoadingTest:
           case FilamentAction::MmuUnLoad:
           case FilamentAction::MmuEject:
           case FilamentAction::MmuCut:
@@ -1939,11 +1939,11 @@ void mFilamentItem(uint16_t nTemp, uint16_t nTempBed)
             menu_back(nLevel);
             menu_submenu(mmu_load_to_nozzle_menu);
             break;
-        case FilamentAction::MmuLoadExtruder:
+        case FilamentAction::MmuLoadingTest:
             nLevel = bFilamentPreheatState ? 1 : 2;
             bFilamentAction = true;
             menu_back(nLevel);
-            menu_submenu(mmu_load_to_extruder_menu);
+            menu_submenu(mmu_loading_test_menu);
             break;
         case FilamentAction::MmuUnLoad:
             nLevel = bFilamentPreheatState ? 1 : 2;
@@ -1999,7 +1999,7 @@ void mFilamentItem(uint16_t nTemp, uint16_t nTempBed)
             case FilamentAction::Load:
             case FilamentAction::AutoLoad:
             case FilamentAction::MmuLoad:
-            case FilamentAction::MmuLoadExtruder:
+            case FilamentAction::MmuLoadingTest:
                 lcd_puts_P(_i("Preheating to load")); ////MSG_PREHEATING_TO_LOAD c=20
                 if (once) raise_z_above(MIN_Z_FOR_LOAD);
                 break;
@@ -4270,10 +4270,7 @@ static void lcd_fsensor_settings_menu() {
 
 static void settingsSpoolJoin()
 {
-    if (MMU2::mmu2.Enabled())
-    {
-        MENU_ITEM_TOGGLE_P(MSG_SPOOL_JOIN, SpoolJoin::spooljoin.isSpoolJoinEnabled() ? _T(MSG_ON) : _T(MSG_OFF), SpoolJoin::spooljoin.toggleSpoolJoin);
-    }
+    MENU_ITEM_TOGGLE_P(MSG_SPOOL_JOIN, SpoolJoin::spooljoin.isSpoolJoinEnabled() ? _T(MSG_ON) : _T(MSG_OFF), SpoolJoin::spooljoin.toggleSpoolJoin);
 }
 
 #define SETTINGS_SPOOLJOIN \
@@ -4286,22 +4283,19 @@ while(0)\
 #ifdef MMU_HAS_CUTTER
 static void settingsCutter()
 {
-    if (MMU2::mmu2.Enabled())
+    if (EEPROM_MMU_CUTTER_ENABLED_enabled == eeprom_read_byte((uint8_t*)EEPROM_MMU_CUTTER_ENABLED))
     {
-        if (EEPROM_MMU_CUTTER_ENABLED_enabled == eeprom_read_byte((uint8_t*)EEPROM_MMU_CUTTER_ENABLED))
-        {
-            MENU_ITEM_TOGGLE_P(_T(MSG_CUTTER), _T(MSG_ON), lcd_cutter_enabled);
-        }
+        MENU_ITEM_TOGGLE_P(_T(MSG_CUTTER), _T(MSG_ON), lcd_cutter_enabled);
+    }
 #ifdef MMU_ALWAYS_CUT
-        else if (EEPROM_MMU_CUTTER_ENABLED_always == eeprom_read_byte((uint8_t*)EEPROM_MMU_CUTTER_ENABLED))
-        {
-            MENU_ITEM_TOGGLE_P(_T(MSG_CUTTER), _T(MSG_ALWAYS), lcd_cutter_enabled);
-        }
+    else if (EEPROM_MMU_CUTTER_ENABLED_always == eeprom_read_byte((uint8_t*)EEPROM_MMU_CUTTER_ENABLED))
+    {
+        MENU_ITEM_TOGGLE_P(_T(MSG_CUTTER), _T(MSG_ALWAYS), lcd_cutter_enabled);
+    }
 #endif
-        else
-        {
-            MENU_ITEM_TOGGLE_P(_T(MSG_CUTTER), _T(MSG_OFF), lcd_cutter_enabled);
-        }
+    else
+    {
+        MENU_ITEM_TOGGLE_P(_T(MSG_CUTTER), _T(MSG_OFF), lcd_cutter_enabled);
     }
 }
 
@@ -4418,6 +4412,13 @@ do\
 }\
 while (0)
 */
+
+#define SETTINGS_MMU_LOADING_TEST \
+do\
+{\
+    MENU_ITEM_SUBMENU_P(_T(MSG_LOADING_TEST), mmu_loading_test_menu); \
+}\
+while (0)
 
 #define SETTINGS_SOUND \
 do\
@@ -4748,14 +4749,18 @@ static void lcd_settings_menu()
     MENU_ITEM_SUBMENU_P(_T(MSG_FSENSOR), lcd_fsensor_settings_menu);
 #endif //FILAMENT_SENSOR
 
-	SETTINGS_SPOOLJOIN;
-
-	SETTINGS_CUTTER;
-
     MENU_ITEM_TOGGLE_P(PSTR("MMU"), eeprom_read_byte((uint8_t *)EEPROM_MMU_ENABLED) ? _T(MSG_ON) : _T(MSG_OFF), mmu_enable_switch);
 
+    if (MMU2::mmu2.Enabled())
+    { // Only show menus when communicating with MMU
+        SETTINGS_SPOOLJOIN;
+        SETTINGS_CUTTER;
+        SETTINGS_MMU_MODE;
+        SETTINGS_MMU_LOADING_TEST;
+    }
+
     if (eeprom_read_byte((uint8_t *)EEPROM_MMU_ENABLED))
-    {
+    { // Communication with MMU not required to reset MMU
         MENU_ITEM_FUNCTION_P(PSTR("Reset MMU"), mmu_reset);
     }
 
@@ -4768,8 +4773,6 @@ static void lcd_settings_menu()
         bSettings=true;                              // flag ('fake parameter') for 'lcd_hw_setup_menu()' function
         MENU_ITEM_SUBMENU_P(_T(MSG_HW_SETUP), lcd_hw_setup_menu);
     }
-    
-	SETTINGS_MMU_MODE;
 
 	MENU_ITEM_SUBMENU_P(_T(MSG_MESH_BED_LEVELING), lcd_mesh_bed_leveling_settings);
 
@@ -5157,26 +5160,26 @@ static void mmu_cut_filament_menu() {
 }
 #endif //MMU_HAS_CUTTER
 
-static inline void load_to_extruder_all_wrapper(){
+static inline void loading_test_all_wrapper(){
     for(uint8_t i = 0; i < 5; ++i){
-        MMU2::mmu2.load_to_extruder(i);
+        MMU2::mmu2.loading_test(i);
     }
 }
 
-static inline void load_to_extruder_wrapper(uint8_t i){
-    MMU2::mmu2.load_to_extruder(i);
+static inline void loading_test_wrapper(uint8_t i){
+    MMU2::mmu2.loading_test(i);
 }
 
-static void mmu_load_to_extruder_menu() {
+static void mmu_loading_test_menu() {
     if (bFilamentAction) {
         MENU_BEGIN();
         MENU_ITEM_BACK_P(_T(MSG_MAIN));
-        MENU_ITEM_FUNCTION_P(_T(MSG_LOAD_ALL), load_to_extruder_all_wrapper);
+        MENU_ITEM_FUNCTION_P(_T(MSG_LOAD_ALL), loading_test_all_wrapper);
         for (uint8_t i = 0; i < MMU_FILAMENT_COUNT; i++)
-            MENU_ITEM_FUNCTION_NR_P(_T(MSG_LOAD_FILAMENT), i + '1', load_to_extruder_wrapper, i); ////MSG_LOAD_FILAMENT c=16
+            MENU_ITEM_FUNCTION_NR_P(_T(MSG_LOAD_FILAMENT), i + '1', loading_test_wrapper, i); ////MSG_LOAD_FILAMENT c=16
         MENU_END();
     } else {
-        eFilamentAction = FilamentAction::MmuLoadExtruder;
+        eFilamentAction = FilamentAction::MmuLoadingTest;
         preheat_or_continue();
     }
 }
@@ -5565,7 +5568,6 @@ static void lcd_main_menu()
     if ( ! ( IS_SD_PRINTING || usb_timer.running() || (lcd_commands_type == LcdCommands::Layer1Cal) ) ) {
         if (MMU2::mmu2.Enabled()) {
             MENU_ITEM_SUBMENU_P(_T(MSG_LOAD_FILAMENT), mmu_load_filament_menu);
-            MENU_ITEM_SUBMENU_P(_T(MSG_LOAD_TO_EXTRUDER), mmu_load_to_extruder_menu);
             MENU_ITEM_SUBMENU_P(_i("Load to nozzle"), mmu_load_to_nozzle_menu);////MSG_LOAD_TO_NOZZLE c=18
             MENU_ITEM_SUBMENU_P(_T(MSG_UNLOAD_FILAMENT), mmu_unload_filament);
             MENU_ITEM_SUBMENU_P(_T(MSG_EJECT_FILAMENT), mmu_fil_eject_menu);
@@ -5743,9 +5745,11 @@ static void lcd_tune_menu()
     MENU_ITEM_SUBMENU_P(_T(MSG_FSENSOR), lcd_fsensor_settings_menu);
 #endif //FILAMENT_SENSOR
 
-	SETTINGS_SPOOLJOIN;
-
-	SETTINGS_CUTTER;
+    if (MMU2::mmu2.Enabled())
+    {
+        SETTINGS_SPOOLJOIN;
+        SETTINGS_CUTTER;
+    }
 
 	MENU_ITEM_TOGGLE_P(_T(MSG_FANS_CHECK), fans_check_enabled ? _T(MSG_ON) : _T(MSG_OFF), lcd_set_fan_check);
 
