@@ -7,6 +7,7 @@
 #include "stepper.h"
 #include "temperature.h"
 #include "language.h"
+#include "Prusa_farm.h"
 
 #ifdef SDSUPPORT
 
@@ -290,7 +291,7 @@ void CardReader::getDirName(char* name, uint8_t level)
 		workDirParents[level].getFilename(name);
 }
 
-uint16_t CardReader::getWorkDirDepth() {
+uint8_t CardReader::getWorkDirDepth() {
 	return workDirDepth;
 }
 
@@ -304,7 +305,7 @@ void CardReader::getAbsFilename(char *t)
     while(*t!=0 && cnt< MAXPATHNAMELENGTH) 
     {t++;cnt++;}  //crawl counter forward.
   }
-  if(cnt<MAXPATHNAMELENGTH-13)
+  if(cnt < MAXPATHNAMELENGTH - FILENAME_LENGTH)
     file.getFilename(t);
   else
     t[0]=0;
@@ -738,7 +739,7 @@ bool CardReader::chdir(const char * relpath, bool doPresort)
     puts(relpath);
 
     if (workDirDepth < MAX_DIR_DEPTH) {
-      for (int d = ++workDirDepth; d--;)
+      for (uint8_t d = ++workDirDepth; d--;)
         workDirParents[d+1] = workDirParents[d];
       workDirParents[0]=*parent;
     }
@@ -760,7 +761,7 @@ void CardReader::updir()
   {
     --workDirDepth;
     workDir = workDirParents[0];
-    for (unsigned int d = 0; d < workDirDepth; d++)
+    for (uint8_t d = 0; d < workDirDepth; d++)
     {
         workDirParents[d] = workDirParents[d+1];
     }
@@ -802,7 +803,7 @@ void CardReader::presort() {
 	// Throw away old sort index
 	flush_presort();
 	
-	if (farm_mode || IS_SD_INSERTED == false) return; //sorting is not used in farm mode
+	if (IS_SD_INSERTED == false) return; //sorting is not used in farm mode
 	uint8_t sdSort = eeprom_read_byte((uint8_t*)EEPROM_SD_SORT);
 
 	KEEPALIVE_STATE(IN_HANDLER);
@@ -813,7 +814,7 @@ void CardReader::presort() {
 		// Never sort more than the max allowed
 		// If you use folders to organize, 20 may be enough
 		if (fileCnt > SDSORT_LIMIT) {
-			if (sdSort != SD_SORT_NONE) {
+			if ((sdSort != SD_SORT_NONE) && !farm_mode) {
 				lcd_show_fullscreen_message_and_wait_P(_i("Some files will not be sorted. Max. No. of files in 1 folder for sorting is 100."));////MSG_FILE_CNT c=20 r=6
 			}
 			fileCnt = SDSORT_LIMIT;
@@ -832,7 +833,7 @@ void CardReader::presort() {
 			sort_entries[i] = position >> 5;
 		}
 
-		if ((fileCnt > 1) && (sdSort != SD_SORT_NONE)) {
+		if ((fileCnt > 1) && (sdSort != SD_SORT_NONE) && !farm_mode) {
 
 #ifdef SORTING_SPEEDTEST
 			LongTimer sortingSpeedtestTimer;
@@ -858,7 +859,7 @@ void CardReader::presort() {
 #endif
 
       uint16_t counter = 0;
-      menu_progressbar_init(fileCnt * fileCnt / 2, _i("Sorting files"));
+      menu_progressbar_init(fileCnt * fileCnt / 2, _T(MSG_SORTING_FILES));
 
       for (uint16_t i = 1; i < fileCnt; ++i){
         // if (!IS_SD_INSERTED) return;
@@ -925,7 +926,7 @@ void CardReader::presort() {
 #endif
 
 			uint16_t counter = 0;
-			menu_progressbar_init(0.5*(fileCnt - 1)*(fileCnt), _i("Sorting files"));
+			menu_progressbar_init(0.5*(fileCnt - 1)*(fileCnt), _T(MSG_SORTING_FILES));
 
 			for (uint16_t i = fileCnt; --i;) {
 				if (!IS_SD_INSERTED) return;
@@ -1008,9 +1009,10 @@ void CardReader::flush_presort() {
 void CardReader::printingHasFinished()
 {
     st_synchronize();
+    file.close();
+
     if(file_subcall_ctr>0) //heading up to a parent file that called current as a procedure.
     {
-      file.close();
       file_subcall_ctr--;
       openFileReadFilteredGcode(filenames[file_subcall_ctr],true);
       setIndex(filespos[file_subcall_ctr]);
@@ -1018,8 +1020,6 @@ void CardReader::printingHasFinished()
     }
     else
     {
-      quickStop();
-      file.close();
       sdprinting = false;
       if(SD_FINISHED_STEPPERRELEASE)
       {

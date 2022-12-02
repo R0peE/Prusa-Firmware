@@ -64,7 +64,12 @@ out
 /.settings
 /.project
 /.cproject
-/.vscode
+
+# cmake
+/build/
+/build_gen/
+/.dependencies
+/compile_commands.json
 
 # Temporary configuration
 /Firmware/Configuration_prusa.h
@@ -74,6 +79,7 @@ out
 /lang/tmp/
 /lang/Firmware-intl.hex
 /lang/Firmware-intl-en_*.hex
+/lang/*.map
 
 # Temporary files and directories
 *[~#]
