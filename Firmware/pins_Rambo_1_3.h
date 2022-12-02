@@ -60,8 +60,6 @@
 #define TEMP_PINDA_PIN          1 //A1
 
 
-#define TEMP_TIM 3
-
 
 #define E0_STEP_PIN            34
 #define E0_DIR_PIN             43
@@ -81,7 +79,7 @@
 #define PS_ON_PIN           -1
 #define KILL_PIN            -1  // 80 with Smart Controller LCD
 #define SUICIDE_PIN         -1  // PIN that has to be turned on right after start, to keep power flowing.
-#define TACH_0				30	// noctua hotend fan
+#define TACH_0				30	// noctua extruder fan
 
 
 //#define KILL_PIN            32

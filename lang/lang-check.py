@@ -42,7 +42,6 @@ from lib import charset as cs
 from lib.io import load_map
 
 COLORIZE = (stdout.isatty() and os.getenv("TERM", "dumb") != "dumb") or os.getenv('NO_COLOR') == "0"
-LCD_WIDTH = 20
 
 def color_maybe(color_attr, text):
     if COLORIZE:
@@ -119,12 +118,8 @@ def ign_char_first(c):
 def ign_char_last(c):
     return c.isalnum() or c in {'.', "'"}
 
-def check_translation(entry, msgids, is_pot, no_warning, no_suggest, warn_empty, warn_same, information, shorter):
+def check_translation(entry, msgids, is_pot, no_warning, no_suggest, warn_empty, warn_same, information):
     """Check strings to display definition."""
-
-    # do not check obsolete/deleted entriees
-    if entry.obsolete:
-        return True
 
     # fetch/decode entry for easy access
     meta = entry.comment.split('\n', 1)[0]
@@ -162,18 +157,15 @@ def check_translation(entry, msgids, is_pot, no_warning, no_suggest, warn_empty,
             print(red(" definition: " + meta))
             return False
 
-    if not cols:
-        if not no_warning and known_msgid and not rows:
+    if cols is None and rows is None:
+        if not no_warning and known_msgid:
             errors += 1
             print(yellow("[W]: No usable display definition on line %d" % line))
         # probably fullscreen, guess from the message length to continue checking
-        cols = LCD_WIDTH
-    if cols > LCD_WIDTH:
-        errors += 1
-        print(yellow("[W]: Invalid column count on line %d" % line))
-    if not rows:
+        cols = len(source)
+    if rows is None:
         rows = 1
-    elif rows > 1 and cols != LCD_WIDTH:
+    elif rows > 1 and cols != 20:
         errors += 1
         print(yellow("[W]: Multiple rows with odd number of columns on line %d" % line))
 
@@ -211,7 +203,7 @@ def check_translation(entry, msgids, is_pot, no_warning, no_suggest, warn_empty,
         return (errors == 0)
 
     # Missing translation
-    if len(translation) == 0 and (warn_empty or (not no_warning and known_msgid)):
+    if len(translation) == 0 and (known_msgid or warn_empty):
         errors += 1
         if rows == 1:
             print(yellow("[W]: Empty translation for \"%s\" on line %d" % (source, line)))
@@ -221,18 +213,10 @@ def check_translation(entry, msgids, is_pot, no_warning, no_suggest, warn_empty,
             print_wrapped(wrapped_source, rows, cols)
             print()
 
-    # Check for translation length too long
+    # Check for translation lenght
     if (rows_count_translation > rows) or (rows == 1 and len(translation) > cols):
         errors += 1
         print(red('[E]: Text is longer than definition on line %d: cols=%d rows=%d (rows diff=%d)'
-                % (line, cols, rows, rows_count_translation-rows)))
-        print_source_translation(source, translation,
-                                wrapped_source, wrapped_translation,
-                                rows, cols)
-
-    # Check for translation length shorter
-    if shorter and (rows_count_translation < rows-1):
-        print(yellow('[S]: Text is shorter than definition on line %d: cols=%d rows=%d (rows diff=%d)'
                 % (line, cols, rows, rows_count_translation-rows)))
         print_source_translation(source, translation,
                                 wrapped_source, wrapped_translation,
@@ -308,9 +292,6 @@ def main():
         "--no-suggest", action="store_true",
         help="Disable suggestions")
     parser.add_argument(
-        "--errors-only", action="store_true",
-        help="Only check errors")
-    parser.add_argument(
         "--pot", action="store_true",
         help="Do not check translations")
     parser.add_argument(
@@ -324,19 +305,12 @@ def main():
     parser.add_argument(
         "--warn-same", action="store_true",
         help="Warn about one-word translations which are identical to the source")
-    parser.add_argument(
-        "--shorter", action="store_true",
-        help="Show message if it is shorter than expected.")
 
     # load the translations
     args = parser.parse_args()
     if not os.path.isfile(args.po):
         print("{}: file does not exist or is not a regular file".format(args.po), file=stderr)
         return 1
-
-    if args.errors_only:
-        args.no_warning = True
-        args.no_suggest = True
 
     # load the symbol map to supress empty (but unused) translation warnings
     msgids = None
@@ -351,7 +325,7 @@ def main():
     status = True
     for translation in polib.pofile(args.po):
         status &= check_translation(translation, msgids, args.pot, args.no_warning, args.no_suggest,
-                                    args.warn_empty, args.warn_same, args.information, args.shorter)
+                                    args.warn_empty, args.warn_same, args.information)
     return 0 if status else 1
 
 if __name__ == "__main__":

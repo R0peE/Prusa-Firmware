@@ -1015,7 +1015,7 @@ void SdBaseFile::printFatTime( uint16_t fatTime) {
  * the value zero, false, is returned for failure.
  */
 bool SdBaseFile::printName() {
-  char name[FILENAME_LENGTH];
+  char name[13];
   if (!getFilename(name)) return false;
   MYSERIAL.print(name);
   return true;

@@ -62,7 +62,6 @@ void eeprom_init()
     if (eeprom_read_word((uint16_t*)EEPROM_MMU_LOAD_FAIL_TOT) == 0xffff) eeprom_update_word((uint16_t *)EEPROM_MMU_LOAD_FAIL_TOT, 0);
     if (eeprom_read_byte((uint8_t*)EEPROM_MMU_FAIL) == 0xff) eeprom_update_byte((uint8_t *)EEPROM_MMU_FAIL, 0);
     if (eeprom_read_byte((uint8_t*)EEPROM_MMU_LOAD_FAIL) == 0xff) eeprom_update_byte((uint8_t *)EEPROM_MMU_LOAD_FAIL, 0);
-    if (eeprom_read_dword((uint32_t*)EEPROM_TOTAL_TOOLCHANGE_COUNT) == 0xffffffff) eeprom_update_dword((uint32_t *)EEPROM_TOTAL_TOOLCHANGE_COUNT, 0);
     if (eeprom_read_byte(&(EEPROM_Sheets_base->active_sheet)) == EEPROM_EMPTY_VALUE)
     {
         eeprom_update_byte(&(EEPROM_Sheets_base->active_sheet), 0);
@@ -106,8 +105,6 @@ if (eeprom_read_byte((uint8_t*)EEPROM_PINDA_TEMP_COMPENSATION) == 0xff) eeprom_u
         eeprom_update_dword((uint32_t *)EEPROM_TOTALTIME, 0);
         eeprom_update_dword((uint32_t *)EEPROM_FILAMENTUSED, 0);
     }
-//Set Cutter OFF if 0xff
-    if (eeprom_read_byte((uint8_t*)EEPROM_MMU_CUTTER_ENABLED) == 0xff) eeprom_update_byte((uint8_t *)EEPROM_MMU_CUTTER_ENABLED, 0);
 }
 
 //! @brief Get default sheet name for index
@@ -118,8 +115,8 @@ if (eeprom_read_byte((uint8_t*)EEPROM_PINDA_TEMP_COMPENSATION) == 0xff) eeprom_u
 //! | 1     | Smooth2   |
 //! | 2     | Textur1   |
 //! | 3     | Textur2   |
-//! | 4     | Satin     |
-//! | 5     | NylonPA   |
+//! | 4     | Satin 1   |
+//! | 5     | Satin 2   |
 //! | 6     | Custom1   |
 //! | 7     | Custom2   |
 //!
@@ -137,23 +134,17 @@ void eeprom_default_sheet_name(uint8_t index, SheetName &sheetName)
     {
         strcpy_P(sheetName.c, PSTR("Textur"));
     }
-    else if (index < 5)
-    {
-        strcpy_P(sheetName.c, PSTR("Satin  "));
-    }
     else if (index < 6)
     {
-        strcpy_P(sheetName.c, PSTR("NylonPA"));
+        strcpy_P(sheetName.c, PSTR("Satin "));
     }
     else
     {
         strcpy_P(sheetName.c, PSTR("Custom"));
     }
-    if (index <4 || index >5)
-    {
-        sheetName.c[6] = '0' + ((index % 2)+1);
-        sheetName.c[7] = '\0';
-    }
+
+    sheetName.c[6] = '0' + ((index % 2)+1);
+    sheetName.c[7] = '\0';
 }
 
 //! @brief Get next initialized sheet

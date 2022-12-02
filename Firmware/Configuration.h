@@ -17,17 +17,17 @@ extern PGM_P sPrinterName;
 
 // Firmware version
 #define FW_MAJOR 3
-#define FW_MINOR 13
-#define FW_REVISION 0
-#define FW_FLAVOR ALPHA      //uncomment if DEBUG, DEVEL, ALPHA, BETA or RC
-#define FW_FLAVERSION 1     //uncomment if FW_FLAVOR is defined and versioning is needed.
+#define FW_MINOR 11
+#define FW_REVISION 1
+//#define FW_FLAVOR RC      //uncomment if DEBUG, DEVEL, APLHA, BETA or RC
+//#define FW_FLAVERSION 1     //uncomment if FW_FLAVOR is defined and versioning is needed.
 #ifndef FW_FLAVOR
     #define FW_VERSION STR(FW_MAJOR) "." STR(FW_MINOR) "." STR(FW_REVISION)
 #else
     #define FW_VERSION STR(FW_MAJOR) "." STR(FW_MINOR) "." STR(FW_REVISION) "-" STR(FW_FLAVOR) "" STR(FW_FLAVERSION)
 #endif
 
-#define FW_COMMIT_NR 6054
+#define FW_COMMIT_NR 4987
 
 // FW_VERSION_UNKNOWN means this is an unofficial build.
 // The firmware should only be checked into github with this symbol.
@@ -63,14 +63,7 @@ extern PGM_P sPrinterName;
 #undef DEBUG_BUILD
 #endif
 
-#ifndef SOURCE_DATE_EPOCH
-#define SOURCE_DATE_EPOCH __DATE__
-#endif
-#ifndef SOURCE_TIME_EPOCH
-#define SOURCE_TIME_EPOCH __TIME__
-#endif
-
-#include "Configuration_var.h"
+#include "Configuration_prusa.h"
 
 #define FW_PRUSA3D_MAGIC "PRUSA3DFW"
 #define FW_PRUSA3D_MAGIC_LEN 10
@@ -85,7 +78,9 @@ extern PGM_P sPrinterName;
 // startup. Implementation of an idea by Prof Braino to inform user that any changes made to this
 // build by the user have been successfully uploaded into firmware.
 
-#define STRING_VERSION_CONFIG_H SOURCE_DATE_EPOCH " " SOURCE_TIME_EPOCH // build date and time
+//#define STRING_VERSION "1.0.2"
+
+#define STRING_VERSION_CONFIG_H __DATE__ " " __TIME__ // build date and time
 #define STRING_CONFIG_H_AUTHOR "(none, default config)" // Who made the changes.
 
 // SERIAL_PORT selects which serial port should be used for communication with the host.
@@ -449,12 +444,10 @@ your extruder heater takes 2 minutes to hit the target on heating.
 // Custom M code points
 #define CUSTOM_M_CODES
 #ifdef CUSTOM_M_CODES
-#ifdef ENABLE_AUTO_BED_LEVELING
   #define CUSTOM_M_CODE_SET_Z_PROBE_OFFSET 851
   #define Z_PROBE_OFFSET_RANGE_MIN -15
   #define Z_PROBE_OFFSET_RANGE_MAX -5
-#endif // ENABLE_AUTO_BED_LEVELING
-#endif // CUSTOM_M_CODES
+#endif
 
 
 // EEPROM
@@ -571,5 +564,6 @@ enum CalibrationStatus
 
 #include "Configuration_adv.h"
 #include "thermistortables.h"
+
 
 #endif //__CONFIGURATION_H

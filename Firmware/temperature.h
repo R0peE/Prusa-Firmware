@@ -22,13 +22,29 @@
 #define temperature_h 
 
 #include "Marlin.h"
+#include "planner.h"
+
+#include "stepper.h"
+
 #include "config.h"
 
+
+#ifdef SYSTEM_TIMER_2
+
+#define ENABLE_TEMPERATURE_INTERRUPT()  TIMSK2 |= (1<<OCIE2B)
+#define DISABLE_TEMPERATURE_INTERRUPT() TIMSK2 &= ~(1<<OCIE2B)
+
+#else //SYSTEM_TIMER_2
+
+#define ENABLE_TEMPERATURE_INTERRUPT()  TIMSK0 |= (1<<OCIE0B)
+#define DISABLE_TEMPERATURE_INTERRUPT() TIMSK0 &= ~(1<<OCIE0B)
+
+#endif //SYSTEM_TIMER_2
+
+
 // public functions
-void soft_pwm_init(); //initialize the soft pwm isr
-void temp_mgr_init(); //initialize the temperature handler
+void tp_init();  //initialize the heating
 void manage_heater(); //it is critical that this is called periodically.
-bool get_temp_error(); //return true if any thermal error is set
 
 extern bool checkAllHotends(void);
 
@@ -66,18 +82,20 @@ extern int current_voltage_raw_bed;
 extern uint16_t current_voltage_raw_IR;
 #endif //IR_SENSOR_ANALOG
 
+#if defined(CONTROLLERFAN_PIN) && CONTROLLERFAN_PIN > -1
+  extern unsigned char soft_pwm_bed;
+#endif
+
 extern bool bedPWMDisabled;
 
 #ifdef PIDTEMP
   extern int pid_cycle, pid_number_of_cycles;
   extern float _Kp,_Ki,_Kd;
+  extern bool pid_tuning_finished;
   float scalePID_i(float i);
   float scalePID_d(float d);
   float unscalePID_i(float i);
   float unscalePID_d(float d);
-
-  bool pidTuningRunning(); // returns true if PID tuning is still running
-  void preparePidTuning(); // non-blocking call to set "pidTuningRunning" to true immediately
 #endif
 
 
@@ -138,7 +156,8 @@ FORCE_INLINE void setTargetHotend(const float &celsius, uint8_t extruder) {
 static inline void setTargetHotendSafe(const float &celsius, uint8_t extruder)
 {
     if (extruder<EXTRUDERS) {
-        setTargetHotend(celsius, extruder);
+      target_temperature[extruder] = celsius;
+      resetPID(extruder);
     }
 }
 
@@ -199,7 +218,7 @@ FORCE_INLINE bool isCoolingBed() {
 #define CHECK_ALL_HEATERS (checkAllHotends()||(target_temperature_bed!=0))
 
 int getHeaterPower(int heater);
-void disable_heater(); // Disable all heaters *instantaneously*
+void disable_heater(); // Disable all heaters
 void updatePID();
 
 
@@ -216,28 +235,39 @@ FORCE_INLINE void autotempShutdown(){
 
 void PID_autotune(float temp, int extruder, int ncycles);
 
-#ifdef TEMP_MODEL
-void temp_model_set_enabled(bool enabled);
-bool temp_model_valid();
-void temp_model_set_warn_beep(bool enabled);
-void temp_model_set_params(float C = NAN, float P = NAN, float Ta_corr = NAN, float warn = NAN, float err = NAN);
-void temp_model_set_resistance(uint8_t index, float R);
+void setExtruderAutoFanState(uint8_t state);
+void checkExtruderAutoFans();
 
-void temp_model_report_settings();
-void temp_model_reset_settings();
-void temp_model_load_settings();
-void temp_model_save_settings();
 
-void temp_model_autotune(int16_t temp = 0, bool selftest = false);
+#if (defined(FANCHECK) && defined(TACH_0) && (TACH_0 > -1))
 
-#ifdef TEMP_MODEL_DEBUG
-void temp_model_log_enable(bool enable);
-#endif
-#endif
+enum { 
+	EFCE_OK = 0,   //!< normal operation, both fans are ok
+	EFCE_FIXED,    //!< previous fan error was fixed
+	EFCE_DETECTED, //!< fan error detected, but not reported yet
+	EFCE_REPORTED  //!< fan error detected and reported to LCD and serial
+};
+extern volatile uint8_t fan_check_error;
 
-#ifdef FAN_SOFT_PWM
-extern unsigned char fanSpeedSoftPwm;
-#endif
+void countFanSpeed();
+void checkFanSpeed();
+void fanSpeedError(unsigned char _fan);
+
+void check_fans();
+
+#endif //(defined(TACH_0))
+
+void check_min_temp();
+void check_max_temp();
+
+#ifdef EXTRUDER_ALTFAN_DETECT
+  extern bool extruder_altfan_detect();
+  extern void altfanOverride_toggle();
+  extern bool altfanOverride_get();
+#endif //EXTRUDER_ALTFAN_DETECT
+
+extern unsigned long extruder_autofan_last_check;
 extern uint8_t fanSpeedBckp;
+extern bool fan_measuring;
 
 #endif
